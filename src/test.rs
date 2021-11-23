@@ -1,11 +1,13 @@
-pub struct TestConfig {
+pub struct TestConfig<'a> {
     pub app_config: crate::config::Config,
     pub private_key: jsonwebtoken::EncodingKey,
     pub service_key_1: jsonwebtoken::EncodingKey,
     pub service_key_2: jsonwebtoken::EncodingKey,
+
+    pub private_key_decoding: jsonwebtoken::DecodingKey<'a>,
 }
 
-impl TestConfig {
+impl TestConfig<'_> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let private_key = jsonwebkey::Key::generate_p256();
@@ -36,7 +38,7 @@ impl TestConfig {
             service_host_regexp: Some(regex::Regex::new(r"^service.?\.test\.invalid$").unwrap()),
             source_allowed_regexp: Some(
                 regex::Regex::new(
-                    r"^http://(127\.0\.0\.1:\d+|localhost:\d+|upstream\.test\.invalid)/",
+                    r"^http://(127\.0\.0\.1:\d+|\[::1\]:\d+|localhost:\d+|upstream\.test\.invalid)/",
                 )
                 .unwrap(),
             ),
@@ -47,7 +49,7 @@ impl TestConfig {
                 .unwrap(),
             ),
             private_source_allowed_regexp: Some(
-                regex::Regex::new(r"^http://127\.0\.0\.1:\d+/").unwrap(),
+                regex::Regex::new(r"^http://(127\.0\.0\.1:\d+|\[::1\]:\d+)/").unwrap(),
             ),
             content_type_allowed: crate::config::default_content_type_allowed(),
 
@@ -68,6 +70,7 @@ impl TestConfig {
             private_key: private_key.to_encoding_key(),
             service_key_1: service_key_1.to_encoding_key(),
             service_key_2: service_key_2.to_encoding_key(),
+            private_key_decoding: private_key.to_decoding_key(),
         }
     }
 }

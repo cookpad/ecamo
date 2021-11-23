@@ -396,5 +396,54 @@ async fn test_proxy_too_long_chunked() {
     assert!(err.is_body());
 }
 
+#[actix_rt::test]
+async fn test_proxy_send_token() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+    let mut mockserv = httptest::Server::run();
+
+    let (dgst, token) = test::encode_proxy_token(
+        &env.test_config.private_key,
+        "prv",
+        ecamo::token::UrlToken {
+            iss: "https://service1.test.invalid".to_owned(),
+            ecamo_url: mockserv.url("/guarded.gif").to_string(),
+            ecamo_send_token: true,
+        },
+        60,
+        true,
+    );
+
+    log::debug!("{}", mockserv.url("/"));
+
+    mockserv.expect(
+        httptest::Expectation::matching(httptest::matchers::all_of![
+            httptest::matchers::request::method_path("GET", "/guarded.gif"),
+            httptest::matchers::request::headers(HttptestUpstreamRequestTokenMatcher {
+                aud: url::Url::parse(&mockserv.url("").to_string())
+                    .unwrap()
+                    .origin()
+                    .ascii_serialization(),
+                svc: "https://service1.test.invalid".to_owned(),
+                key: env.test_config.private_key_decoding.clone(),
+            }),
+        ])
+        .respond_with(httptest::responders::status_code(200)),
+    );
+
+    let _resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/p/{}?t={}", dgst, token))
+                .unwrap(),
+        )
+        .header("host", "ecamo.test.invalid")
+        .send()
+        .await
+        .unwrap();
+
+    mockserv.verify_and_clear();
+}
+
 // #[actix_rt::test]
 // async fn test_proxy_request_headers() {} // TODO:

@@ -179,8 +179,10 @@ impl TokenWithSourceUrl for ProxyToken {
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct UpstreamRequestToken {
     pub iss: String,
+    pub sub: String,
     pub aud: String,
     pub exp: i64,
+    pub iat: i64,
 
     #[serde(rename = "ecamo:svc")]
     pub ecamo_service_origin: String,
@@ -188,12 +190,15 @@ pub struct UpstreamRequestToken {
 
 impl UpstreamRequestToken {
     pub fn new(url: &url::Url, service_origin: &str, config: &Config) -> Self {
-        let exp = chrono::Utc::now() + chrono::Duration::seconds(config.token_lifetime);
+        let now = chrono::Utc::now();
+        let exp = now + chrono::Duration::seconds(config.token_lifetime);
 
         Self {
-            iss: "ecamo".to_owned(),
+            iss: format!("https://{}", config.canonical_host),
+            sub: "anonymous".to_owned(),
             aud: url.origin().ascii_serialization(),
             exp: exp.timestamp(),
+            iat: now.timestamp(),
             ecamo_service_origin: service_origin.to_string(),
         }
     }

@@ -59,6 +59,8 @@ version = "1"
 [dev-dependencies]
 actix-rt = "2.4.0"
 actix-test = "0.1.0-beta.6"
+bstr = "0.2.17"
+httptest = "0.15.4"
 hyper = "0.14.15"
 lazy_static = "1.4.0"
 mockito = "0.30.0"

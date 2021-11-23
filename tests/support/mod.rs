@@ -1,3 +1,4 @@
+use ecamo::error::Error;
 use ecamo::test;
 
 lazy_static::lazy_static! {
@@ -8,8 +9,8 @@ lazy_static::lazy_static! {
     };
 }
 
-pub struct Environment {
-    pub test_config: test::TestConfig,
+pub struct Environment<'a> {
+    pub test_config: test::TestConfig<'a>,
     pub url: reqwest::Url,
     pub upstream_mock: mockito::Mock,
     pub upstream_mock_large: mockito::Mock,
@@ -19,7 +20,7 @@ pub struct Environment {
     pub upstream_mock_text: mockito::Mock,
 }
 
-pub async fn init_and_spawn() -> Environment {
+pub async fn init_and_spawn() -> Environment<'static> {
     let _ = env_logger::builder().is_test(true).try_init();
     let test_config = crate::test::TestConfig::new();
 
@@ -132,4 +133,74 @@ fn upstream_mock_chunked_large_body(body: &mut dyn std::io::Write) -> std::io::R
     upstream_mock_chunked_body(body)?;
     log::debug!("waf");
     Ok(())
+}
+
+pub struct HttptestUpstreamRequestTokenMatcher<'a> {
+    pub svc: String,
+    pub aud: String,
+    pub key: jsonwebtoken::DecodingKey<'a>,
+}
+
+impl HttptestUpstreamRequestTokenMatcher<'_> {
+    fn attempt(&self, token: &str) -> Result<(), Error> {
+        let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
+
+        let kid = header
+            .kid
+            .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
+        if kid != "prv" {
+            return Err(Error::UnknownKeyError("kid != prv".to_owned()));
+        }
+
+        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
+        validation.iss = Some("https://ecamo.test.invalid".to_string());
+        validation.set_audience(&[&self.aud]);
+
+        let payload = jsonwebtoken::decode::<ecamo::token::UpstreamRequestToken>(
+            token,
+            &self.key,
+            &validation,
+        )
+        .map(|d| d.claims)?;
+
+        if payload.ecamo_service_origin != self.svc {
+            return Err(Error::UnknownError("invalid svc".to_owned()));
+        }
+
+        Ok(())
+    }
+}
+
+impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
+    for HttptestUpstreamRequestTokenMatcher<'_>
+{
+    fn matches(
+        &mut self,
+        input: &[httptest::matchers::KV<str, bstr::BStr>],
+        _ctx: &mut httptest::matchers::ExecutionContext,
+    ) -> bool {
+        for kv in input {
+            if kv.k != "authorization" {
+                continue;
+            }
+            let hv = kv.v.to_string();
+            let token = match hv.split_once(" ") {
+                Some((_, t)) => t,
+                _ => return false,
+            };
+
+            return match self.attempt(&token) {
+                Ok(_) => true,
+                Err(e) => {
+                    log::warn!("HttptestUpstreamRequestTokenMatcher: e={:?}", e);
+                    false
+                }
+            };
+        }
+        return false;
+    }
+
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("HttptestUpstreamRequestTokenMatcher")
+    }
 }

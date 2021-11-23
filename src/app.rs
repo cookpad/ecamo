@@ -231,14 +231,18 @@ async fn do_proxy(
     if proxy_token.ecamo_send_token {
         let upstream_token =
             UpstreamRequestToken::new(&url, &proxy_token.ecamo_service_origin, &state.config);
-        // TODO: mark as sensitive HeaderValue
-        upstream_req = upstream_req.header(
-            "authorization",
-            format!("ecamo {}", upstream_token.encode(&state.signing_key)?),
-        );
+        let mut authorization_hv = reqwest::header::HeaderValue::from_str(&format!(
+            "Bearer {}",
+            upstream_token.encode(&state.signing_key)?
+        ))
+        .unwrap();
+        authorization_hv.set_sensitive(true);
+        upstream_req = upstream_req.header("authorization", authorization_hv);
     }
 
-    upstream_req = upstream_req.header("accept-encoding", "identity");
+    upstream_req = upstream_req
+        .header("accept-encoding", "identity")
+        .header("via", "ecamo");
 
     let resp = match upstream_req.send().await {
         Err(e) => {
