@@ -445,5 +445,34 @@ async fn test_proxy_send_token() {
     mockserv.verify_and_clear();
 }
 
-// #[actix_rt::test]
-// async fn test_proxy_request_headers() {} // TODO:
+#[actix_rt::test]
+async fn test_proxy_request_headers() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+
+    let _mock = mockito::mock("GET", "/headers.gif")
+        .match_header("accept", "image/gif")
+        .with_body(TEST_GIF.clone())
+        .with_header("content-type", "image/gif")
+        .with_header("etag", "W/\"headers\"")
+        .create();
+
+    let (dgst, token) = make_proxy_token(&env, format!("{}/headers.gif", mockito::server_url()));
+
+    let resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/p/{}?t={}", dgst, token))
+                .unwrap(),
+        )
+        .header("host", "ecamo.test.invalid")
+        .header("accept", "image/gif")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+    assert_response_header!(resp, "etag", "W/\"headers\"");
+    let bytes = resp.bytes().await.unwrap();
+    assert_eq!(bytes, TEST_GIF.clone());
+}

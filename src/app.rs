@@ -230,7 +230,7 @@ fn do_redirect_to_source(url: String) -> actix_web::HttpResponse<actix_web::body
 
 async fn do_proxy(
     state: web::Data<AppState<'_>>,
-    _downstream_req: actix_web::HttpRequest,
+    downstream_req: actix_web::HttpRequest,
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
     let url = url::Url::parse(&proxy_token.ecamo_url).map_err(Error::UrlError)?;
@@ -250,7 +250,8 @@ async fn do_proxy(
 
     upstream_req = upstream_req
         .header("accept-encoding", "identity")
-        .header("via", "ecamo");
+        .header("via", "1.1 ecamo");
+    upstream_req = proxy_headers_to_upstream(upstream_req, &downstream_req, &state.config);
 
     let resp = match upstream_req.send().await {
         Err(e) => {
@@ -285,7 +286,7 @@ async fn do_proxy(
             .insert_header(("X-Frame-Options", "deny"))
             .insert_header(("X-Content-Type-Options", "nosniff"));
 
-        proxy_headers(&resp, &mut downstream_resp, &state.config, false);
+        proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, false);
         downstream_resp.insert_header(("content-type", "text/plain"));
         downstream_resp.insert_header(("x-ecamo-error-origin", "source"));
 
@@ -313,7 +314,7 @@ async fn do_proxy(
         .insert_header(("X-Frame-Options", "deny"))
         .insert_header(("X-Content-Type-Options", "nosniff"));
 
-    proxy_headers(&resp, &mut downstream_resp, &state.config, true);
+    proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, true);
 
     let chunking = if let Some(len) = resp.content_length() {
         downstream_resp.no_chunking(len);
@@ -336,7 +337,24 @@ async fn do_proxy(
     }
 }
 
-fn proxy_headers<'a>(
+fn proxy_headers_to_upstream<'a>(
+    upstream: reqwest::RequestBuilder,
+    downstream: &'a actix_web::HttpRequest,
+    _config: &Config,
+) -> reqwest::RequestBuilder {
+    let mut req = upstream;
+    macro_rules! proxy_headers_transfer {
+        ($k:literal) => {
+            if let Some(Ok(v)) = downstream.headers().get($k).map(|hv| hv.to_str()) {
+                req = req.header($k, v);
+            }
+        };
+    }
+    proxy_headers_transfer!("accept");
+    return req;
+}
+
+fn proxy_headers_to_downstream<'a>(
     upstream: &reqwest::Response,
     downstream: &'a mut actix_web::HttpResponseBuilder,
     config: &Config,
