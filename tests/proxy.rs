@@ -419,7 +419,7 @@ async fn test_proxy_send_token() {
     mockserv.expect(
         httptest::Expectation::matching(httptest::matchers::all_of![
             httptest::matchers::request::method_path("GET", "/guarded.gif"),
-            httptest::matchers::request::headers(HttptestUpstreamRequestTokenMatcher {
+            httptest::matchers::request::headers(HttptestAnonymousIDTokenMatcher {
                 aud: url::Url::parse(&mockserv.url("").to_string())
                     .unwrap()
                     .origin()

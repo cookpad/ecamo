@@ -5,7 +5,7 @@ use crate::error::Error;
 use crate::internal_proxy::InternalProxy;
 use crate::request::HttpRequestExt;
 use crate::token::TokenWithSourceUrl;
-use crate::token::{ProxyToken, UpstreamRequestToken, UrlToken};
+use crate::token::{ProxyToken, AnonymousIDToken, UrlToken};
 
 pub async fn main(config: Config) -> std::io::Result<actix_web::dev::Server> {
     let listener = listenfd::ListenFd::from_env()
@@ -245,7 +245,7 @@ async fn do_proxy(
 
     if proxy_token.ecamo_send_token {
         let upstream_token =
-            UpstreamRequestToken::new(&url, &proxy_token.ecamo_service_origin, &state.config);
+            AnonymousIDToken::new(&url, &proxy_token.ecamo_service_origin, &state.config);
         let mut authorization_hv = reqwest::header::HeaderValue::from_str(&format!(
             "Bearer {}",
             upstream_token.encode(&state.signing_key)?
@@ -260,7 +260,7 @@ async fn do_proxy(
             if InternalProxy::is_reqwest_error_due_to_rejection(&e) {
                 return Err(Error::UnallowedSourceError);
             } else {
-                return Err(Error::UpstreamRequestError(e));
+                return Err(Error::SourceRequestError(e));
             }
         }
         Ok(r) => r,
@@ -272,7 +272,7 @@ async fn do_proxy(
 
     if let Some(len) = resp.content_length() {
         if len > state.config.max_length.into() {
-            return Err(Error::UpstreamResponseTooLargeError);
+            return Err(Error::SourceResponseTooLargeError);
         }
     }
 

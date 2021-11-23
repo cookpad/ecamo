@@ -47,7 +47,7 @@ Configuration is done through environment variables.
 - `ECAMO_CONTENT_TYPE_ALLOWED` (default: common image/* types): `Content-Type` allowed to be proxied. Specify in comma separeted values.
 - `ECAMO_TIMEOUT`: Timeout in seconds to fetch a source URL.
 - `ECAMO_AUTH_COOKIE` (default: `__Host-ecamo_token`, when insecure mode=`ecamo_token`): Cookie name to store an _authorisation token._
-- `ECAMO_DEFUALT_CACHE_CONTROL` (default=`public, max-age=3600`): cache-control header value to response when it is missing in upstream response 
+- `ECAMO_DEFUALT_CACHE_CONTROL` (default=`public, max-age=3600`): cache-control header value to response when it is missing in a source URL response
 - `ECAMO_INSECURE`: When given, some features work on plain HTTP for development.
 
 ### `sec-x-ecamo-service-host` header
@@ -94,10 +94,6 @@ It is recommended to align cookie expiration and token lifetime.
 ## Misc
 
 TODO: logging
-
-TODO: unwrap()
-
-TODO: multiple words: origin / upstream / source
 
 ### Auth delegation
 

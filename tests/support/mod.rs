@@ -135,13 +135,13 @@ fn upstream_mock_chunked_large_body(body: &mut dyn std::io::Write) -> std::io::R
     Ok(())
 }
 
-pub struct HttptestUpstreamRequestTokenMatcher<'a> {
+pub struct HttptestAnonymousIDTokenMatcher<'a> {
     pub svc: String,
     pub aud: String,
     pub key: jsonwebtoken::DecodingKey<'a>,
 }
 
-impl HttptestUpstreamRequestTokenMatcher<'_> {
+impl HttptestAnonymousIDTokenMatcher<'_> {
     fn attempt(&self, token: &str) -> Result<(), Error> {
         let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
 
@@ -156,7 +156,7 @@ impl HttptestUpstreamRequestTokenMatcher<'_> {
         validation.iss = Some("https://ecamo.test.invalid".to_string());
         validation.set_audience(&[&self.aud]);
 
-        let payload = jsonwebtoken::decode::<ecamo::token::UpstreamRequestToken>(
+        let payload = jsonwebtoken::decode::<ecamo::token::AnonymousIDToken>(
             token,
             &self.key,
             &validation,
@@ -172,7 +172,7 @@ impl HttptestUpstreamRequestTokenMatcher<'_> {
 }
 
 impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
-    for HttptestUpstreamRequestTokenMatcher<'_>
+    for HttptestAnonymousIDTokenMatcher<'_>
 {
     fn matches(
         &mut self,
@@ -192,7 +192,7 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
             return match self.attempt(&token) {
                 Ok(_) => true,
                 Err(e) => {
-                    log::warn!("HttptestUpstreamRequestTokenMatcher: e={:?}", e);
+                    log::warn!("HttptestAnonymousIDTokenMatcher: e={:?}", e);
                     false
                 }
             };
@@ -201,6 +201,6 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
     }
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("HttptestUpstreamRequestTokenMatcher")
+        f.write_str("HttptestAnonymousIDTokenMatcher")
     }
 }

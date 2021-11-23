@@ -13,7 +13,7 @@ pub enum Error {
     UnallowedSourceError,
 
     #[error("content too large")]
-    UpstreamResponseTooLargeError,
+    SourceResponseTooLargeError,
 
     #[error("jwterror")]
     JWTError(#[from] jsonwebtoken::errors::Error),
@@ -28,7 +28,7 @@ pub enum Error {
     UrlError(#[from] url::ParseError),
 
     #[error("request error")]
-    UpstreamRequestError(#[from] reqwest::Error),
+    SourceRequestError(#[from] reqwest::Error),
 
     #[error("signing key is undeterminable; specify $ECAMO_SIGNING_KID")]
     UndeterminableKeyError,
@@ -53,8 +53,8 @@ impl actix_web::ResponseError for Error {
             Self::UnallowedServiceHostError => actix_http::StatusCode::FORBIDDEN,
             Self::UnallowedSourceError => actix_http::StatusCode::FORBIDDEN,
             Self::UnknownKeyError(_) => actix_http::StatusCode::UNAUTHORIZED,
-            Self::UpstreamRequestError(_) => actix_http::StatusCode::BAD_GATEWAY,
-            Self::UpstreamResponseTooLargeError => actix_http::StatusCode::FORBIDDEN,
+            Self::SourceRequestError(_) => actix_http::StatusCode::BAD_GATEWAY,
+            Self::SourceResponseTooLargeError => actix_http::StatusCode::FORBIDDEN,
             Self::InallowedContentTypeError => actix_http::StatusCode::FORBIDDEN,
             Self::UrlError(_) => actix_http::StatusCode::BAD_REQUEST,
             _ => actix_http::StatusCode::INTERNAL_SERVER_ERROR,

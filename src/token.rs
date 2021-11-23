@@ -177,7 +177,7 @@ impl TokenWithSourceUrl for ProxyToken {
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
-pub struct UpstreamRequestToken {
+pub struct AnonymousIDToken {
     pub iss: String,
     pub sub: String,
     pub aud: String,
@@ -188,7 +188,7 @@ pub struct UpstreamRequestToken {
     pub ecamo_service_origin: String,
 }
 
-impl UpstreamRequestToken {
+impl AnonymousIDToken {
     pub fn new(url: &url::Url, service_origin: &str, config: &Config) -> Self {
         let now = chrono::Utc::now();
         let exp = now + chrono::Duration::seconds(config.token_lifetime);
