@@ -7,6 +7,7 @@ pub mod app;
 
 pub mod global_ip;
 pub mod internal_proxy;
+pub mod limited_stream;
 
 #[doc(hidden)]
 pub mod test;

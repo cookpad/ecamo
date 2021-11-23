@@ -1,5 +1,3 @@
-use actix_web::ResponseError;
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("some claims are missing: {0}")]
@@ -45,7 +43,7 @@ pub enum Error {
     UnknownError(String),
 }
 
-impl ResponseError for Error {
+impl actix_web::ResponseError for Error {
     fn status_code(&self) -> actix_http::StatusCode {
         match *self {
             Self::Base64DecodeError(_) => actix_http::StatusCode::BAD_REQUEST,

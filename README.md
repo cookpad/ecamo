@@ -98,6 +98,8 @@ TODO: conditional GET on serve_proxy
 
 TODO: logging
 
+TODO: unwrap()
+
 ### Auth delegation
 
 ### Using with CDN

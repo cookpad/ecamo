@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use actix_web::{web, HttpResponse};
 
 use crate::config::Config;
@@ -279,7 +281,7 @@ async fn do_proxy(
     }
 
     if let Some(len) = resp.content_length() {
-        if len > state.config.max_length {
+        if len > state.config.max_length.into() {
             return Err(Error::UpstreamResponseTooLargeError);
         }
     }
@@ -301,16 +303,25 @@ async fn do_proxy(
 
     proxy_headers(&resp, &mut downstream_resp, &state.config, true);
 
-    if let Some(len) = resp.content_length() {
+    let chunking = if let Some(len) = resp.content_length() {
         downstream_resp.no_chunking(len);
-    }
+        false
+    } else {
+        true
+    };
 
-    // TODO: "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'"
-    // TODO: length limit on chunked transfer encoding
+    // TODO: "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
     let stream = resp.bytes_stream();
-
-    Ok(downstream_resp.streaming(stream))
+    if chunking {
+        let lstream = crate::limited_stream::LimitedStream::new(
+            stream,
+            state.config.max_length.try_into().unwrap(),
+        );
+        Ok(downstream_resp.streaming(lstream))
+    } else {
+        Ok(downstream_resp.streaming(stream))
+    }
 }
 
 fn proxy_headers<'a>(

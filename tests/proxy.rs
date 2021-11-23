@@ -228,6 +228,31 @@ async fn test_proxy_200() {
 }
 
 #[actix_rt::test]
+async fn test_proxy_200_chunked() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+
+    let (dgst, token) = make_proxy_token(&env, format!("{}/chunked.gif", mockito::server_url()));
+
+    let resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/p/{}?t={}", dgst, token))
+                .unwrap(),
+        )
+        .header("host", "ecamo.test.invalid")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+    assert_response_header!(resp, "content-type", "image/gif");
+
+    let bytes = resp.bytes().await.unwrap();
+    assert_eq!(bytes, TEST_GIF.clone());
+}
+
+#[actix_rt::test]
 async fn test_proxy_40x() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
@@ -345,5 +370,31 @@ async fn test_proxy_connect_error() {
     assert_response_header!(resp, "x-ecamo-error-origin");
 }
 
+#[actix_rt::test]
+async fn test_proxy_too_long_chunked() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+
+    let (dgst, token) =
+        make_proxy_token(&env, format!("{}/chunked-large.gif", mockito::server_url()));
+
+    let resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/p/{}?t={}", dgst, token))
+                .unwrap(),
+        )
+        .header("host", "ecamo.test.invalid")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::OK);
+    let bytes = resp.bytes().await;
+
+    let err = bytes.err().unwrap();
+    assert!(err.is_body());
+}
+
 // #[actix_rt::test]
-// async fn test_proxy_request_headers() {}
+// async fn test_proxy_request_headers() {} // TODO:

@@ -10,7 +10,7 @@ fn default_timeout() -> u64 {
     10
 }
 
-fn default_max_length() -> u64 {
+fn default_max_length() -> u32 {
     5242880
 }
 
@@ -109,7 +109,7 @@ pub struct Config {
     #[serde(default = "default_timeout")]
     pub timeout: u64,
     #[serde(default = "default_max_length")]
-    pub max_length: u64,
+    pub max_length: u32,
 
     #[serde(default = "default_content_type_allowed")]
     pub content_type_allowed: Vec<String>,
