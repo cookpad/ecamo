@@ -15,7 +15,7 @@ Unlike Camo, an _origin_ must set up routing to Ecamo under a path with predefin
 Ecamo is designed to be used as follows and `wiki.corp.example.com` is expected to set an _authorisation cookie_ for Ecamo.
 
 ```html
-<!-- On origin https://wiki.corp.example.com/... -->
+<!-- On origin https://wiki.corp.example.com -->
 <img src="https://wiki.corp.example.com/.ecamo/v1/r/abcdef.abcdef...">
 ```
 

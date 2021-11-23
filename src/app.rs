@@ -206,6 +206,14 @@ async fn serve_proxy(
     }
     proxy_token.verify(&digest)?;
 
+    if !proxy_token.ecamo_send_token {
+        if let Some(Ok(dest)) = req.headers().get("sec-fetch-dest").map(|hv| hv.to_str()) {
+            if dest == "document" {
+                return Ok(do_redirect_to_source(proxy_token.ecamo_url));
+            }
+        }
+    }
+
     Ok(do_proxy(state, req, proxy_token).await?)
 }
 
