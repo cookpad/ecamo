@@ -1,5 +1,6 @@
 use futures_core::task::Poll;
 use pin_project::pin_project;
+use std::convert::TryInto;
 use std::pin::Pin;
 
 #[derive(thiserror::Error, Debug)]
@@ -25,11 +26,17 @@ where
     St: futures_core::stream::Stream<Item = std::result::Result<bytes::Bytes, E>>,
     E: Into<Box<dyn std::error::Error>> + 'static,
 {
-    pub(crate) fn new(stream: St, limit: usize) -> Self {
+    pub(crate) fn new(stream: St, limit: u64) -> Self {
+        let limit_usize: usize = limit.try_into().unwrap_or_else(|_| {
+            log::warn!("failed to cast max_length into usize, falling back to u32::MAX");
+            u32::MAX
+                .try_into()
+                .expect("we're expecting at least 32-bit machine")
+        });
         Self {
             inner: stream,
             count: 0,
-            limit,
+            limit: limit_usize,
         }
     }
 }

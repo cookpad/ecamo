@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use actix_web::{web, HttpResponse};
 
 use crate::config::Config;
@@ -111,7 +109,12 @@ async fn launch_internal_proxy() -> reqwest::Url {
     url.set_password(Some(proxy.get_password().as_str()))
         .unwrap();
 
-    tokio::spawn(async move { proxy.run(internal_proxy_listener).await.unwrap() });
+    tokio::spawn(async move {
+        proxy
+            .run(internal_proxy_listener)
+            .await
+            .expect("internal SOCKS5 proxy died")
+    });
 
     url
 }
@@ -247,7 +250,7 @@ async fn do_proxy(
             "Bearer {}",
             upstream_token.encode(&state.signing_key)?
         ))
-        .unwrap();
+        .expect("failed to construct bearer token");
         authorization_hv.set_sensitive(true);
         upstream_req = upstream_req.header("authorization", authorization_hv);
     }
@@ -308,10 +311,7 @@ fn proxy_stream_response(
 
     let stream = resp.bytes_stream();
     if chunking {
-        let lstream = crate::limited_stream::LimitedStream::new(
-            stream,
-            state.config.max_length.try_into().unwrap(),
-        );
+        let lstream = crate::limited_stream::LimitedStream::new(stream, state.config.max_length);
         Ok(downstream_resp.streaming(lstream))
     } else {
         Ok(downstream_resp.streaming(stream))
