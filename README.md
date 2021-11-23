@@ -27,7 +27,7 @@ To allow user to recognise a canonical URL of a requested content, when a end us
 
 This behaviour is disabled for source URLs subject for _auth delegation._
 
-## Setup
+## Deploy
 
 ### Configuration
 
@@ -50,6 +50,7 @@ Configuration is done through environment variables.
 - `ECAMO_DEFUALT_CACHE_CONTROL` (default=`public, max-age=3600`): cache-control header value to response when it is missing in upstream response 
 - `ECAMO_INSECURE`: When given, some features work on plain HTTP for development.
 
+### `sec-x-ecamo-service-host` header
 
 ## Usage
 
@@ -88,17 +89,15 @@ An authorisation token is a JWT signed by a key specified in `$ECAMO_SIGNING_PUB
   - `iss` must be identical to an hostname of _service origin._
   - `aud` must be `$ECAMO_CANONICAL_HOST`.
 
-## Deploying ecamo
-
-### `sec-x-ecamo-service-host`
+It is recommended to align cookie expiration and token lifetime.
 
 ## Misc
-
-TODO: conditional GET on serve_proxy
 
 TODO: logging
 
 TODO: unwrap()
+
+TODO: multiple words: origin / upstream / source
 
 ### Auth delegation
 

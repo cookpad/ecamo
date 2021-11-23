@@ -234,8 +234,12 @@ async fn do_proxy(
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
     let url = url::Url::parse(&proxy_token.ecamo_url).map_err(Error::UrlError)?;
-
     let mut upstream_req = state.upstream.http.get(url.clone());
+    upstream_req = upstream_req
+        .header("accept-encoding", "identity")
+        .header("via", "1.1 ecamo");
+    upstream_req = proxy_headers_to_upstream(upstream_req, &downstream_req, &state.config);
+
     if proxy_token.ecamo_send_token {
         let upstream_token =
             UpstreamRequestToken::new(&url, &proxy_token.ecamo_service_origin, &state.config);
@@ -247,11 +251,6 @@ async fn do_proxy(
         authorization_hv.set_sensitive(true);
         upstream_req = upstream_req.header("authorization", authorization_hv);
     }
-
-    upstream_req = upstream_req
-        .header("accept-encoding", "identity")
-        .header("via", "1.1 ecamo");
-    upstream_req = proxy_headers_to_upstream(upstream_req, &downstream_req, &state.config);
 
     let resp = match upstream_req.send().await {
         Err(e) => {
@@ -265,32 +264,7 @@ async fn do_proxy(
     };
 
     if resp.status() != reqwest::StatusCode::OK {
-        let (status, body) = if resp.status().is_client_error() || resp.status().is_server_error() {
-            (
-                resp.status(),
-                format!("{} (from upstream)", resp.status().as_str()),
-            )
-        } else {
-            (
-                reqwest::StatusCode::BAD_REQUEST,
-                format!(
-                    "{} (from upstream, converted to 400)",
-                    resp.status().as_str()
-                ),
-            )
-        };
-
-        let mut downstream_resp = HttpResponse::build(status);
-        downstream_resp
-            .insert_header(("x-ecamo-action", "proxy-source"))
-            .insert_header(("X-Frame-Options", "deny"))
-            .insert_header(("X-Content-Type-Options", "nosniff"));
-
-        proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, false);
-        downstream_resp.insert_header(("content-type", "text/plain"));
-        downstream_resp.insert_header(("x-ecamo-error-origin", "source"));
-
-        return Ok(downstream_resp.body(body));
+        return proxy_handle_upstream_error(resp, state);
     }
 
     if let Some(len) = resp.content_length() {
@@ -308,6 +282,13 @@ async fn do_proxy(
         _ => return Err(Error::InallowedContentTypeError),
     }
 
+    proxy_stream_response(resp, state)
+}
+
+fn proxy_stream_response(
+    resp: reqwest::Response,
+    state: web::Data<AppState<'_>>,
+) -> Result<HttpResponse, Error> {
     let mut downstream_resp = HttpResponse::Ok();
     downstream_resp
         .insert_header(("x-ecamo-action", "proxy-source"))
@@ -335,6 +316,38 @@ async fn do_proxy(
     } else {
         Ok(downstream_resp.streaming(stream))
     }
+}
+
+fn proxy_handle_upstream_error(
+    resp: reqwest::Response,
+    state: web::Data<AppState<'_>>,
+) -> Result<HttpResponse, Error> {
+    let (status, body) = if resp.status().is_client_error() || resp.status().is_server_error() {
+        (
+            resp.status(),
+            format!("{} (from upstream)", resp.status().as_str()),
+        )
+    } else {
+        (
+            reqwest::StatusCode::BAD_REQUEST,
+            format!(
+                "{} (from upstream, converted to 400)",
+                resp.status().as_str()
+            ),
+        )
+    };
+
+    let mut downstream_resp = HttpResponse::build(status);
+    downstream_resp
+        .insert_header(("x-ecamo-action", "proxy-source"))
+        .insert_header(("X-Frame-Options", "deny"))
+        .insert_header(("X-Content-Type-Options", "nosniff"));
+
+    proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, false);
+    downstream_resp.insert_header(("content-type", "text/plain"));
+    downstream_resp.insert_header(("x-ecamo-error-origin", "source"));
+
+    return Ok(downstream_resp.body(body));
 }
 
 fn proxy_headers_to_upstream<'a>(
