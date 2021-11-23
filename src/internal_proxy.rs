@@ -44,9 +44,9 @@ impl InternalProxy {
 
         let state = State { password, control };
 
-        return InternalProxy {
+        InternalProxy {
             state: Arc::new(state),
-        };
+        }
     }
 
     pub fn is_reqwest_error_due_to_rejection(err: &reqwest::Error) -> bool {
@@ -112,7 +112,7 @@ impl InternalProxy {
             Ok(None) => {}
             Err(e) => return Err(e),
         }
-        return Ok(());
+        Ok(())
     }
 
     async fn handshake(
@@ -285,7 +285,7 @@ impl InternalProxy {
                         stream.write_all(&replybuf[0..(4 + 16 + 2)]).await?;
                     }
                 }
-                return Ok(Some(peer_conn));
+                Ok(Some(peer_conn))
             }
             Err(e) => {
                 log::warn!(
@@ -304,7 +304,7 @@ impl InternalProxy {
                 replybuf[3] = atyp;
                 stream.write_all(&replybuf[0..(4 + 2 + addrlen)]).await?;
                 stream.shutdown().await?;
-                return Ok(None);
+                Ok(None)
             }
         }
     }
@@ -315,7 +315,7 @@ async fn do_proxy(
     mut peer: tokio::net::TcpStream,
 ) -> tokio::io::Result<()> {
     tokio::io::copy_bidirectional(client, &mut peer).await?;
-    return Ok(());
+    Ok(())
 }
 
 #[derive(Debug)]

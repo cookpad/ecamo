@@ -1,5 +1,3 @@
-use crate::error::Error;
-
 pub struct TestConfig {
     pub app_config: crate::config::Config,
     pub private_key: jsonwebtoken::EncodingKey,
@@ -8,6 +6,7 @@ pub struct TestConfig {
 }
 
 impl TestConfig {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let private_key = jsonwebkey::Key::generate_p256();
         let service_key_1 = jsonwebkey::Key::generate_p256();
@@ -79,8 +78,8 @@ pub fn encode_url_token(
 ) -> String {
     let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
     header.kid = Some(kid.to_string());
-    let token = jsonwebtoken::encode(&header, &payload, &key).unwrap();
-    token
+
+    jsonwebtoken::encode(&header, &payload, key).unwrap()
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -101,8 +100,7 @@ pub fn generate_auth_token(key: &jsonwebtoken::EncodingKey, kid: &str, iss: &str
         exp: exp.timestamp(),
     };
 
-    let token = jsonwebtoken::encode(&header, &payload, &key).unwrap();
-    token
+    jsonwebtoken::encode(&header, &payload, key).unwrap()
 }
 
 pub fn encode_proxy_token(
@@ -128,7 +126,7 @@ pub fn encode_proxy_token(
     let dgst = payload.digest();
     let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
     header.kid = Some(kid.to_string());
-    let token = jsonwebtoken::encode(&header, &payload, &key).unwrap();
+    let token = jsonwebtoken::encode(&header, &payload, key).unwrap();
 
     (dgst, token)
 }

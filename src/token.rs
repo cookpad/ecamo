@@ -7,13 +7,13 @@ pub trait TokenWithSourceUrl {
         let url = self.url();
 
         if let Some(p) = &config.source_allowed_regexp {
-            if !p.is_match(&url) {
+            if !p.is_match(url) {
                 return false;
             }
         }
 
         if let Some(p) = &config.source_blocked_regexp {
-            if p.is_match(&url) {
+            if p.is_match(url) {
                 return false;
             }
         }

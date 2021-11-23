@@ -81,7 +81,7 @@ impl Config {
                 .ok_or(crate::error::Error::UndeterminableKeyError)?;
             self.private_keys
                 .get(kid)
-                .ok_or(crate::error::Error::UnknownKeyError(kid.clone()))?
+                .ok_or_else(|| crate::error::Error::UnknownKeyError(kid.clone()))?
         };
 
         if jwk.key_id.is_none() {

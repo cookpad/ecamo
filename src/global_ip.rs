@@ -17,7 +17,7 @@ pub const fn ipv4addr_is_global(a: &Ipv4Addr) -> bool {
         return true;
     }
 
-    return a.octets()[0] != 0 && // 0.0.0.0/8
+    a.octets()[0] != 0 && // 0.0.0.0/8
         !a.is_unspecified() &&
         !a.is_private() &&
         !(a.octets()[0] == 100 && (a.octets()[1] & 0b1100_0000 == 0b0100_0000)) && // 100.64.0.0/10
@@ -27,13 +27,13 @@ pub const fn ipv4addr_is_global(a: &Ipv4Addr) -> bool {
         !(a.octets()[0] == 198 && (a.octets()[1] & 0xfe) == 18) && // 198.18.0.0/15
         !(a.octets()[0] & 240 == 240 && !a.is_broadcast()) && // 240.0.0.0/4
         !a.is_broadcast() &&
-        !a.is_loopback();
+        !a.is_loopback()
 }
 
 pub const fn ipv6addr_is_global(a: &Ipv6Addr) -> bool {
     // 2000::/3 (https://www.iana.org/assignments/ipv6-unicast-address-assignments/ipv6-unicast-address-assignments.xhtml)
     let f = a.octets()[0] & 0b11100000;
-    return f == 0x20 || f == 0x30;
+    f == 0x20 || f == 0x30
 }
 
 #[cfg(test)]

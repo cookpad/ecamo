@@ -80,15 +80,15 @@ impl AppUpstream {
                     if let Some(proxy_url) = &internal_proxy_url {
                         if let Some(r) = &private_source_allowed_regexp {
                             if r.is_match(url.as_str()) {
-                                return None;
+                                None
                             } else {
-                                return Some(proxy_url.clone());
+                                Some(proxy_url.clone())
                             }
                         } else {
-                            return Some(proxy_url.clone());
+                            Some(proxy_url.clone())
                         }
                     } else {
-                        return None;
+                        None
                     }
                 }))
                 .build()
@@ -120,8 +120,8 @@ async fn index() -> actix_web::Result<HttpResponse> {
 }
 
 #[actix_web::get("/{prefix}/v1/r/{token}")]
-async fn serve_redirect<'a>(
-    state: web::Data<AppState<'a>>,
+async fn serve_redirect(
+    state: web::Data<AppState<'_>>,
     path: web::Path<(String, String)>,
     req: actix_web::HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -184,8 +184,8 @@ struct ProxyQuery {
 }
 
 #[actix_web::get("/{prefix}/v1/p/{digest}")]
-async fn serve_proxy<'a>(
-    state: web::Data<AppState<'a>>,
+async fn serve_proxy(
+    state: web::Data<AppState<'_>>,
     path: web::Path<(String, String)>,
     query: web::Query<ProxyQuery>,
     req: actix_web::HttpRequest,
@@ -218,9 +218,9 @@ fn do_redirect_to_source(url: String) -> actix_web::HttpResponse<actix_web::body
         .finish()
 }
 
-async fn do_proxy<'a>(
-    state: web::Data<AppState<'a>>,
-    downstream_req: actix_web::HttpRequest,
+async fn do_proxy(
+    state: web::Data<AppState<'_>>,
+    _downstream_req: actix_web::HttpRequest,
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
     let url = url::Url::parse(&proxy_token.ecamo_url).map_err(Error::UrlError)?;
