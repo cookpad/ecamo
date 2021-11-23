@@ -302,6 +302,28 @@ async fn test_proxy_too_long() {
 }
 
 #[actix_rt::test]
+async fn test_proxy_inallowed_content_type() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+
+    let (dgst, token) = make_proxy_token(&env, format!("{}/text", mockito::server_url()));
+
+    let resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/p/{}?t={}", dgst, token))
+                .unwrap(),
+        )
+        .header("host", "ecamo.test.invalid")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::FORBIDDEN);
+    assert_response_header!(resp, "x-ecamo-error-origin");
+}
+
+#[actix_rt::test]
 async fn test_proxy_connect_error() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();

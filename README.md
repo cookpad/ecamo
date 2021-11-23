@@ -44,10 +44,11 @@ Configuration is done through environment variables.
 - `ECAMO_PREFIX` (default: `.ecamo`): An _ecamo prefix_ explained earlier. This is an URL prefix especially when embedded in a _service origin,_ more exactly used when redirecting requests to a _service origin_ from a _canonical origin._
 - `ECAMO_MAX_REDIRECTS`: Maximum number of HTTP redirections allowed during a single HTTP request to fetch a source URL.
 - `ECAMO_MAX_LENGTH`: Maximum number of `Content-Length` allowed to be proxied from a source URL.
+- `ECAMO_CONTENT_TYPE_ALLOWED` (default: common image/* types): `Content-Type` allowed to be proxied. Specify in comma separeted values.
 - `ECAMO_TIMEOUT`: Timeout in seconds to fetch a source URL.
-- `ECAMO_AUTH_COOKIE` (default=`__Host-ecamo_token`, insecure=`ecamo_token`): Cookie name to store an _authorisation token._
+- `ECAMO_AUTH_COOKIE` (default: `__Host-ecamo_token`, when insecure mode=`ecamo_token`): Cookie name to store an _authorisation token._
 - `ECAMO_DEFUALT_CACHE_CONTROL` (default=`public, max-age=3600`): cache-control header value to response when it is missing in upstream response 
-- `ECAMO_INSECURE`: When given, some features work on plain HTTP for development
+- `ECAMO_INSECURE`: When given, some features work on plain HTTP for development.
 
 
 ## Usage

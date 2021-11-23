@@ -284,6 +284,15 @@ async fn do_proxy(
         }
     }
 
+    match resp.headers().get("content-type").map(|hv| hv.to_str()) {
+        Some(Ok(ct)) => {
+            if !state.config.content_type_allowed.iter().any(|v| v == ct) {
+                return Err(Error::InallowedContentTypeError);
+            }
+        }
+        _ => return Err(Error::InallowedContentTypeError),
+    }
+
     let mut downstream_resp = HttpResponse::Ok();
     downstream_resp
         .insert_header(("x-ecamo-action", "proxy-source"))
@@ -296,7 +305,6 @@ async fn do_proxy(
         downstream_resp.no_chunking(len);
     }
 
-    // TODO: check content-type
     // TODO: "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'"
     // TODO: length limit on chunked transfer encoding
 

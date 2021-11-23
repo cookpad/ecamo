@@ -38,6 +38,9 @@ pub enum Error {
     #[error("signing key is missing kid")]
     MissingKeyIdError,
 
+    #[error("content-type is not allowed")]
+    InallowedContentTypeError,
+
     #[error("{0}")]
     UnknownError(String),
 }
@@ -54,6 +57,7 @@ impl ResponseError for Error {
             Self::UnknownKeyError(_) => actix_http::StatusCode::UNAUTHORIZED,
             Self::UpstreamRequestError(_) => actix_http::StatusCode::BAD_GATEWAY,
             Self::UpstreamResponseTooLargeError => actix_http::StatusCode::FORBIDDEN,
+            Self::InallowedContentTypeError => actix_http::StatusCode::FORBIDDEN,
             Self::UrlError(_) => actix_http::StatusCode::BAD_REQUEST,
             _ => actix_http::StatusCode::INTERNAL_SERVER_ERROR,
         }

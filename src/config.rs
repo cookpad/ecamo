@@ -18,6 +18,59 @@ fn default_token_lifetime() -> i64 {
     45
 }
 
+pub(crate) fn default_content_type_allowed() -> Vec<String> {
+    vec![
+        "image/avif".to_owned(),
+        "image/bmp".to_owned(),
+        "image/cgm".to_owned(),
+        "image/g3fax".to_owned(),
+        "image/gif".to_owned(),
+        "image/heic".to_owned(),
+        "image/heic-sequence".to_owned(),
+        "image/heif".to_owned(),
+        "image/heif-sequence".to_owned(),
+        "image/ief".to_owned(),
+        "image/jp2".to_owned(),
+        "image/jpeg".to_owned(),
+        "image/jpg".to_owned(),
+        "image/pict".to_owned(),
+        "image/png".to_owned(),
+        "image/prs.btif".to_owned(),
+        "image/svg+xml".to_owned(),
+        "image/tiff".to_owned(),
+        "image/vnd.adobe.photoshop".to_owned(),
+        "image/vnd.djvu".to_owned(),
+        "image/vnd.dwg".to_owned(),
+        "image/vnd.dxf".to_owned(),
+        "image/vnd.fastbidsheet".to_owned(),
+        "image/vnd.fpx".to_owned(),
+        "image/vnd.fst".to_owned(),
+        "image/vnd.fujixerox.edmics-mmr".to_owned(),
+        "image/vnd.fujixerox.edmics-rlc".to_owned(),
+        "image/vnd.microsoft.icon".to_owned(),
+        "image/vnd.ms-modi".to_owned(),
+        "image/vnd.net-fpx".to_owned(),
+        "image/vnd.wap.wbmp".to_owned(),
+        "image/vnd.xiff".to_owned(),
+        "image/webp".to_owned(),
+        "image/x-cmu-raster".to_owned(),
+        "image/x-cmx".to_owned(),
+        "image/x-icon".to_owned(),
+        "image/x-macpaint".to_owned(),
+        "image/x-pcx".to_owned(),
+        "image/x-pict".to_owned(),
+        "image/x-portable-anymap".to_owned(),
+        "image/x-portable-bitmap".to_owned(),
+        "image/x-portable-graymap".to_owned(),
+        "image/x-portable-pixmap".to_owned(),
+        "image/x-quicktime".to_owned(),
+        "image/x-rgb".to_owned(),
+        "image/x-xbitmap".to_owned(),
+        "image/x-xpixmap".to_owned(),
+        "image/x-xwindowdump".to_owned(),
+    ]
+}
+
 fn default_default_cache_control() -> String {
     "public, max-age=3600".to_string()
 }
@@ -57,6 +110,9 @@ pub struct Config {
     pub timeout: u64,
     #[serde(default = "default_max_length")]
     pub max_length: u64,
+
+    #[serde(default = "default_content_type_allowed")]
+    pub content_type_allowed: Vec<String>,
 
     pub auth_cookie: Option<String>,
 

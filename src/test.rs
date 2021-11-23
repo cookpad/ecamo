@@ -49,6 +49,7 @@ impl TestConfig {
             private_source_allowed_regexp: Some(
                 regex::Regex::new(r"^http://127\.0\.0\.1:\d+/").unwrap(),
             ),
+            content_type_allowed: crate::config::default_content_type_allowed(),
 
             prefix: ".ecamo".to_owned(),
             max_redirects: 1,

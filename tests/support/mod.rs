@@ -14,6 +14,7 @@ pub struct Environment {
     pub upstream_mock: mockito::Mock,
     pub upstream_mock_large: mockito::Mock,
     pub upstream_mock_404: mockito::Mock,
+    pub upstream_mock_text: mockito::Mock,
 }
 
 pub async fn init_and_spawn() -> Environment {
@@ -75,12 +76,18 @@ pub async fn init_and_spawn() -> Environment {
         .with_header("vary", "accept")
         .create();
 
+    let upstream_mock_text = mockito::mock("GET", "/text")
+        .with_body("Hello")
+        .with_header("content-type", "text/plain")
+        .create();
+
     Environment {
         test_config,
         url,
         upstream_mock,
         upstream_mock_large,
         upstream_mock_404,
+        upstream_mock_text,
     }
 }
 
