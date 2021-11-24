@@ -10,22 +10,18 @@ We've been used Camo in our internal wiki to serve some external images for long
 
 Basically, as like as Camo does, Ecamo receives URL data and retrives a resource on URL on behalf of user.
 
-Unlike Camo, an _origin_ must set up routing to Ecamo under a path with predefined prefix for Ecamo. For instance, when a _Ecamo prefix_ is set to `/.ecamo/`, then it should be routed to Ecamo server. Single Ecamo server works on multiple applications (= origins).
+Unlike Camo, an _origin_ must set up routing to Ecamo under a path with a predefined prefix of Ecamo. For instance, when a _Ecamo prefix_ is set to `/.ecamo/`, then any requests prefixed with `/.ecamo/` on the origin should be routed to Ecamo server. Single Ecamo server works for multiple applications (= origins).
 
-Ecamo is designed to be used as follows and `wiki.corp.example.com` is expected to set an _authorisation cookie_ for Ecamo.
+Ecamo is designed to be used as follows.
 
 ```html
 <!-- On origin https://wiki.corp.example.com -->
-<img src="https://wiki.corp.example.com/.ecamo/v1/r/abcdef.abcdef...">
+<img src="/.ecamo/v1/r/{URL_TOKEN}...">
 ```
 
-Ecamo will redirect this URL to Ecamo's _canonical origin._ with a short-lived token based on an _authorisation cookie_. Actual contents are only served on a _canonical origin_ for security reasons.
+In this example, an _origin_ is `wiki.corp.example.com` and is expected to set an _authorisation cookie_ for Ecamo. And `URL_TOKEN` specifies a URL of actual content. _authorisation cookies_ and _URL tokens_ are formatted in JWT and must be signed by _origin_ owned P-256 private key.
 
-### Redirect to a source
-
-To allow user to recognise a canonical URL of a requested content, when a end user directly opened `/.ecamo/...` URL, Ecamo redirects them directly to a source image (more exactly, when a request without an authorisation cookie or a request with Sec-Fetch-Dest=document).
-
-This behaviour is disabled for source URLs subject for _auth delegation._
+Then Ecamo will redirect this URL to Ecamo's _canonical origin_ with a short-lived token based on an _authorisation cookie_. A user will receive an actual content of URL specified from _origin._
 
 ## Deploy
 
@@ -42,8 +38,8 @@ Configuration is done through environment variables.
 - `ECAMO_SOURCE_BLOCKED_REGEXP`: Regexp to reject a source URL. When specified, any matching source URL will be denied.
 - `ECAMO_PRIVATE_SOURCE_ALLOWED_REGEXP`: Regexp to validate a source URL in case of a destination IP address resolved into a _private IP address_. Any unmatching source URL connecting to a private IP address will be denied. When unspecified, any connection attempts to private IP address will be denied. Note that a URL has to be allowed also with `ECAMO_SOURCE_ALLOWED_REGEXP`.
 - `ECAMO_PREFIX` (default: `.ecamo`): An _ecamo prefix_ explained earlier. This is an URL prefix especially when embedded in a _service origin,_ more exactly used when redirecting requests to a _service origin_ from a _canonical origin._
-- `ECAMO_MAX_REDIRECTS`: Maximum number of HTTP redirections allowed during a single HTTP request to fetch a source URL.
-- `ECAMO_MAX_LENGTH`: Maximum number of `Content-Length` allowed to be proxied from a source URL.
+- `ECAMO_MAX_REDIRECTS` (default: `0`): Maximum number of HTTP redirections allowed during a single HTTP request to fetch a source URL. When allowed, any URLs will be allowed when following redirection (`ECAMO_*_REGEXP` doesn't work but `ECAMO_PRIVATE_SOURCE_ALLOWED_REGEXP` works)
+- `ECAMO_MAX_LENGTH`: Maximum number of `Content-Length` allowed to be proxied from a source URL. If a `chunked` response exceeds the limit, such proxied response will be terminated (a client will see unexpected EOF)
 - `ECAMO_CONTENT_TYPE_ALLOWED` (default: common image/* types): `Content-Type` allowed to be proxied. Specify in comma separeted values.
 - `ECAMO_TIMEOUT`: Timeout in seconds to fetch a source URL.
 - `ECAMO_AUTH_COOKIE` (default: `__Host-ecamo_token`, when insecure mode=`ecamo_token`): Cookie name to store an _authorisation token._
@@ -52,53 +48,85 @@ Configuration is done through environment variables.
 
 ### `sec-x-ecamo-service-host` header
 
+You can use `sec-x-ecamo-service-host` request header to Ecamo server to explicitly specify a _service origin_ Host header. This should work well especially if you put your Ecamo server behind reverse proxies and you need to set specific `Host` (`:authority`) header.
+
+(In the other hands this is similar to `X-Forwarded-Host` request header)
+
 ## Usage
 
-To use Ecamo, a _service origin_ has to generate a _signed URL_ and an _authorisation token._
+To use Ecamo, a _service origin_ has to generate a _URL token_ and an _authorisation token._
 
 ### Generating a ecamo URL
 
-format: `https://${SERVICE_HOST}/${PREFIX}/v1/r/${TOKEN}`
+Use the following format to make a request to Ecamo:
+
+`https://${SERVICE_HOST}/${PREFIX}/v1/r/${URL_TOKEN}`
 
 where:
 
 - `SERVICE_HOST`: any string is permitted; but subject for validation of `$ECAMO_SERVICE_HOST_REGEXP`
-- `PREFIX`: any string is permitted. 
-- `TOKEN`: JWT (JSON Web Token) with the following constraints:
+- `PREFIX`: recommended to be identical to `$ECAMO_PREFIX` but any string is permitted.
+- `URL_TOKEN`: JWT (JSON Web Token) with the following constraints
   - header:
     - `alg`: Must be `ES256`
     - `kid`: Must be set to a one defined in `$ECAMO_SIGNING_PUBLIC_KEYS`
   - claims:
-    - `iss`: Must be identical to a HTTP origin of _service origin,_ but port number should not be present. (e.g. `https://service.test.invalid`)
+    - `iss`: Must be identical to a Web origin of _service origin,_ but port number should not be present. (e.g. `https://service.test.invalid`)
     - `ecamo:url`: source URL
-    - `ecamo:send-token` (optional): Boolean to indicate whether auth delegation is required or not
+    - `ecamo:send-token` (optional): Set to `true` to send _anonymous ID token_ to the source URL.
 
 #### Note
 
-- Note that a generated signature is not identical per signing action. if you're going to enable edge caching, make sure your application generates ecamo URL as infrequently as possible.
-- It is recommended to leave `exp` claim unset to avoid requiring token regeneration. Access restriction is designed to be done by an _auth cookie._ not on a _ecamo URL._
+- Note that a _URL token_ is indeterministic per signing action. If you're going to enable edge caching, make sure your application generates ecamo URL as infrequently as possible.
+- `exp` and `nbf` claims are not validated.
 
-### Generating an authorisation token
+### Generating an authorisation cookie
 
-An authorisation token is a JWT signed by a key specified in `$ECAMO_SIGNING_PUBLIC_KEYS`, with the following constraints. It should be stored to a cookie named a value of `$ECAMO_AUTH_COOKIE` (default to `__Host-ecamo_token`)
+An _authorisation cookie_ is a JWT signed by a key specified in `$ECAMO_SIGNING_PUBLIC_KEYS`, with the following constraints. It should be stored to a cookie named a value of `$ECAMO_AUTH_COOKIE` (default to `__Host-ecamo_token`)
 
 - header:
   - `alg`: Must be `ES256`
   - `kid`: Must be set to a one defined in `$ECAMO_SIGNING_PUBLIC_KEYS`
 - claims:
-  - `iss` must be identical to an hostname of _service origin._
-  - `aud` must be `$ECAMO_CANONICAL_HOST`.
+  - `exp` must be provided.
+  - `iss` must be identical to an web origin of _service origin._ (e.g. `https://service.test.invalid`)
+  - `aud` must be set to an web origin of _canonical origin._ (e.g. `https://$ECAMO_CANONICAL_HOST`)
 
 It is recommended to align cookie expiration and token lifetime.
 
 ## Misc
 
-### Auth delegation
+### Redirect to a source
+
+To allow user to recognise a canonical URL of a requested content, when a end user directly opened `/.ecamo/...` URL, Ecamo redirects them directly to a source image (more exactly, when a request without an authorisation cookie or a request with Sec-Fetch-Dest=document).
+
+### Anonymous ID Token
+
+If `ecamo:send-token` of a URL token is set to true, Ecamo will set a ID token as a Bearer token (`Authorization: Bearer ...`).
+
+The token doesn't contain user information, for example:
+
+```json
+{
+  "iss": "https://ecamo.test.invalid",
+  "sub": "anonymous",
+  "aud": "https://source.test.invalid",
+  "exp": ...,
+  "iat": ...,
+  "ecamo:svc": "https://service.test.invalid"
+}
+```
 
 ### Using with CDN
 
+TBD
+
 ### SSRF Prevention (Private IP addresses)
 
-TODO:
-
 Due to reqwest's current API limitation, Ecamo launches a SOCKS5 proxy to restrict connection to private IP addresses when `$ECAMO_PRIVATE_SOURCE_ALLOWED_REGEXP` is configured. The internal proxy is used only for requests not matching `$ECAMO_PRIVATE_SOURCE_ALLOWED_REGEXP`. For such requests any attempts to the following addresses will be denied:
+
+## License
+
+MIT License
+
+Copyright 2021 Cookpad Inc.
