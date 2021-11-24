@@ -43,6 +43,25 @@ pub enum Error {
     UnknownError(String),
 }
 
+impl Error {
+    fn error_string(&self) -> &str {
+        match *self {
+            Self::Base64DecodeError(_) => "bad-request",
+            Self::InvalidTokenError(_) => "invalid-token",
+            Self::JWTError(_) => "jwt",
+            Self::MissingClaimError(_) => "missing-claim",
+            Self::UnallowedServiceHostError => "unallowed-service-host",
+            Self::UnallowedSourceError => "unallowed-source",
+            Self::UnknownKeyError(_) => "unknown-key",
+            Self::SourceRequestError(_) => "source-request",
+            Self::SourceResponseTooLargeError => "source-response-too-large",
+            Self::InallowedContentTypeError => "unallowed-content-type",
+            Self::UrlError(_) => "url",
+            _ => "unknown",
+        }
+    }
+}
+
 impl actix_web::ResponseError for Error {
     fn status_code(&self) -> actix_http::StatusCode {
         match *self {
@@ -59,5 +78,11 @@ impl actix_web::ResponseError for Error {
             Self::UrlError(_) => actix_http::StatusCode::BAD_REQUEST,
             _ => actix_http::StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+
+    fn error_response(&self) -> actix_web::web::HttpResponse {
+        actix_web::HttpResponse::build(self.status_code())
+            .insert_header(("x-ecamo-error", self.error_string()))
+            .body(format!("Error: {}", self.error_string()))
     }
 }

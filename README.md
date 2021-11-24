@@ -93,8 +93,6 @@ It is recommended to align cookie expiration and token lifetime.
 
 ## Misc
 
-TODO: logging
-
 ### Auth delegation
 
 ### Using with CDN

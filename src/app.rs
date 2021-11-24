@@ -5,7 +5,7 @@ use crate::error::Error;
 use crate::internal_proxy::InternalProxy;
 use crate::request::HttpRequestExt;
 use crate::token::TokenWithSourceUrl;
-use crate::token::{ProxyToken, AnonymousIDToken, UrlToken};
+use crate::token::{AnonymousIDToken, ProxyToken, UrlToken};
 
 pub async fn main(config: Config) -> std::io::Result<actix_web::dev::Server> {
     let listener = listenfd::ListenFd::from_env()
@@ -25,8 +25,11 @@ pub async fn run(
     let app_state = AppState::new(&config, upstream);
 
     let server = actix_web::HttpServer::new(move || {
+        let logger = actix_web::middleware::Logger::new(
+            r#"status=%s request="%r" ip=%{r}a peer=%a id=%{x-request-id}i ecamo-action=%{x-ecamo-action}o ecamo-error=%{x-ecamo-error}o ecamo-source=%{x-ecamo-source}o runtime=%T size=%b http-host="%{Host}i" http-origin="%{Origin}i" http-referer="%{Referer}i" ua="%{User-Agent}i""#,
+        );
         actix_web::App::new()
-            .wrap(actix_web::middleware::Logger::default())
+            .wrap(logger)
             .app_data(web::Data::new(app_state.clone()))
             .service(index)
             .service(serve_redirect)
@@ -142,13 +145,25 @@ async fn serve_redirect(
 
     if let Some(Ok(dest)) = req.headers().get("sec-fetch-dest").map(|hv| hv.to_str()) {
         if dest == "document" {
-            return Ok(do_redirect_to_source(url_token.ecamo_url));
+            return Ok(do_redirect_to_source(
+                "redirect",
+                &service_origin,
+                "src-fetch-dest",
+                url_token.ecamo_url,
+            ));
         }
     }
 
     let auth_cookie = match req.cookie(state.config.auth_cookie_name()) {
         Some(c) => c,
-        None => return Ok(do_redirect_to_source(url_token.ecamo_url)),
+        None => {
+            return Ok(do_redirect_to_source(
+                "redirect",
+                &service_origin,
+                "auth-cookie-missing",
+                url_token.ecamo_url,
+            ))
+        }
     };
 
     let canonical_origin = req.ecamo_canonical_origin(&state.config)?;
@@ -212,7 +227,12 @@ async fn serve_proxy(
     if !proxy_token.ecamo_send_token {
         if let Some(Ok(dest)) = req.headers().get("sec-fetch-dest").map(|hv| hv.to_str()) {
             if dest == "document" {
-                return Ok(do_redirect_to_source(proxy_token.ecamo_url));
+                return Ok(do_redirect_to_source(
+                    "proxy",
+                    &proxy_token.ecamo_service_origin,
+                    "src-fetch-dest",
+                    proxy_token.ecamo_url,
+                ));
             }
         }
     }
@@ -220,9 +240,22 @@ async fn serve_proxy(
     Ok(do_proxy(state, req, proxy_token).await?)
 }
 
-fn do_redirect_to_source(url: String) -> actix_web::HttpResponse<actix_web::body::AnyBody> {
+fn do_redirect_to_source(
+    handler: &str,
+    service: &str,
+    reason: &str,
+    url: String,
+) -> actix_web::HttpResponse<actix_web::body::AnyBody> {
+    log::info!(
+        "handler={} action=redirect service={} reason={} to={}",
+        handler,
+        service,
+        reason,
+        url
+    );
     HttpResponse::Found()
         .insert_header(("x-ecamo-action", "redirect-to-source"))
+        .insert_header(("x-ecamo-source", url.clone()))
         .insert_header(("Location", url))
         .insert_header((
             "Cache-Control",
@@ -237,6 +270,9 @@ async fn do_proxy(
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
     let url = url::Url::parse(&proxy_token.ecamo_url).map_err(Error::UrlError)?;
+
+    log::info!("handler=proxy action=start-proxy to={}", proxy_token.url());
+
     let mut upstream_req = state.upstream.http.get(url.clone());
     upstream_req = upstream_req
         .header("accept-encoding", "identity")
@@ -267,7 +303,7 @@ async fn do_proxy(
     };
 
     if resp.status() != reqwest::StatusCode::OK {
-        return proxy_handle_upstream_error(resp, state);
+        return proxy_handle_upstream_error(proxy_token, resp, state);
     }
 
     if let Some(len) = resp.content_length() {
@@ -285,25 +321,36 @@ async fn do_proxy(
         _ => return Err(Error::InallowedContentTypeError),
     }
 
-    proxy_stream_response(resp, state)
+    proxy_stream_response(proxy_token, resp, state)
 }
 
 fn proxy_stream_response(
+    proxy_token: ProxyToken,
     resp: reqwest::Response,
     state: web::Data<AppState<'_>>,
 ) -> Result<HttpResponse, Error> {
     let mut downstream_resp = HttpResponse::Ok();
     downstream_resp
         .insert_header(("x-ecamo-action", "proxy-source"))
+        .insert_header(("x-ecamo-source", proxy_token.url()))
         .insert_header(("X-Frame-Options", "deny"))
         .insert_header(("X-Content-Type-Options", "nosniff"));
 
     proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, true);
 
     let chunking = if let Some(len) = resp.content_length() {
+        log::info!(
+            "handler=proxy action=response len={} to={}",
+            len,
+            proxy_token.url(),
+        );
         downstream_resp.no_chunking(len);
         false
     } else {
+        log::info!(
+            "handler=proxy action=response len=- to={}",
+            proxy_token.url(),
+        );
         true
     };
 
@@ -319,6 +366,7 @@ fn proxy_stream_response(
 }
 
 fn proxy_handle_upstream_error(
+    proxy_token: ProxyToken,
     resp: reqwest::Response,
     state: web::Data<AppState<'_>>,
 ) -> Result<HttpResponse, Error> {
@@ -337,14 +385,22 @@ fn proxy_handle_upstream_error(
         )
     };
 
+    log::info!(
+        "handler=proxy action=upstream-response-error status={} to={}",
+        status,
+        proxy_token.url()
+    );
+
     let mut downstream_resp = HttpResponse::build(status);
     downstream_resp
         .insert_header(("x-ecamo-action", "proxy-source"))
+        .insert_header(("x-ecamo-source", proxy_token.url()))
         .insert_header(("X-Frame-Options", "deny"))
         .insert_header(("X-Content-Type-Options", "nosniff"));
 
     proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, false);
     downstream_resp.insert_header(("content-type", "text/plain"));
+    downstream_resp.insert_header(("x-ecamo-error", "source-response"));
     downstream_resp.insert_header(("x-ecamo-error-origin", "source"));
 
     return Ok(downstream_resp.body(body));
