@@ -30,6 +30,10 @@ impl TestConfig<'_> {
                     "https://service2.test.invalid svc2".to_owned(),
                     jsonwebkey::JsonWebKey::new(service_key_2.clone()),
                 ),
+                (
+                    "https://invalid-service.test.invalid isvc".to_owned(),
+                    jsonwebkey::JsonWebKey::new(service_key_2.clone()),
+                ),
             ]
             .into(),
 

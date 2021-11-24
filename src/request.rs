@@ -9,6 +9,7 @@ pub trait HttpRequestExt: actix_web::HttpMessage {
         );
 
         if let Some(p) = &config.service_host_regexp {
+            // TODO: service_host_regexp unchecked on proxy endpoint
             if !p.is_match(&host) {
                 return Err(Error::UnallowedServiceHostError);
             }

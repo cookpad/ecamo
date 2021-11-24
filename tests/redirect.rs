@@ -25,6 +25,44 @@ fn make_valid_auth_token_cookie(env: &Environment) -> String {
 }
 
 #[actix_rt::test]
+async fn test_redirect_invalid_service() {
+    let env = init_and_spawn().await;
+    let http = build_reqwest_client();
+
+    let url_token = test::encode_url_token(
+        &env.test_config.service_key_2,
+        "isvc",
+        ecamo::token::UrlToken {
+            iss: "https://invalid-service.test.invalid".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_send_token: false,
+        },
+    );
+    let auth_token = format!(
+        "__Host-ecamo_token={}",
+        test::generate_auth_token(
+            &env.test_config.service_key_2,
+            "isvc",
+            "https://invalid-service.test.invalid",
+        )
+    );
+
+    let resp = http
+        .get(
+            env.url
+                .join(&format!("/.ecamo/v1/r/{}", url_token))
+                .unwrap(),
+        )
+        .header("host", "invalid-service.test.invalid")
+        .header("cookie", auth_token)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), reqwest::StatusCode::FORBIDDEN);
+}
+
+#[actix_rt::test]
 async fn test_redirect_invalid_url_token_key() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
