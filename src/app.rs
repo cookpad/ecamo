@@ -26,7 +26,7 @@ pub async fn run(
 
     let server = actix_web::HttpServer::new(move || {
         let logger = actix_web::middleware::Logger::new(
-            r#"status=%s request="%r" ip=%{r}a peer=%a id=%{x-request-id}i ecamo-action=%{x-ecamo-action}o ecamo-error=%{x-ecamo-error}o ecamo-source=%{x-ecamo-source}o runtime=%T size=%b http-host="%{Host}i" http-origin="%{Origin}i" http-referer="%{Referer}i" ua="%{User-Agent}i""#,
+            r#"status=%s request="%r" ip=%{r}a peer=%a id=%{x-request-id}i ecamo-action=%{x-ecamo-action}o ecamo-error=%{x-ecamo-error}o ecamo-source="%{x-ecamo-source}o" runtime=%T size=%b http-host="%{Host}i" http-origin="%{Origin}i" http-referer="%{Referer}i" ua="%{User-Agent}i""#,
         );
         actix_web::App::new()
             .wrap(logger)
