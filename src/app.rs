@@ -144,7 +144,6 @@ async fn serve_redirect(
     let service_origin = req.ecamo_service_origin(&state.config)?;
 
     let url_token = UrlToken::decode(&token, &service_origin, &state.service_decoding_keys)?;
-    url::Url::parse(&url_token.ecamo_url).map_err(Error::UrlError)?;
 
     if !url_token.is_valid_source(&state.config) {
         return Err(Error::UnallowedSourceError);
@@ -249,7 +248,7 @@ fn do_redirect_to_source(
     handler: &str,
     service: &str,
     reason: &str,
-    url: String,
+    url: url::Url,
 ) -> actix_web::HttpResponse<actix_web::body::AnyBody> {
     log::info!(
         "handler={} action=redirect service={} reason={} to={}",
@@ -260,8 +259,8 @@ fn do_redirect_to_source(
     );
     HttpResponse::Found()
         .insert_header(("x-ecamo-action", "redirect-to-source"))
-        .insert_header(("x-ecamo-source", url.clone()))
-        .insert_header(("Location", url))
+        .insert_header(("x-ecamo-source", url.as_str()))
+        .insert_header(("Location", url.as_str()))
         .insert_header((
             "Cache-Control",
             "no-cache, no-store, max-age=0, must-revalidate",
@@ -274,19 +273,23 @@ async fn do_proxy(
     downstream_req: actix_web::HttpRequest,
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
-    let url = url::Url::parse(&proxy_token.ecamo_url).map_err(Error::UrlError)?;
+    log::info!(
+        "handler=proxy action=start-proxy to={}",
+        proxy_token.ecamo_url
+    );
 
-    log::info!("handler=proxy action=start-proxy to={}", proxy_token.url());
-
-    let mut upstream_req = state.upstream.http.get(url.clone());
+    let mut upstream_req = state.upstream.http.get(proxy_token.ecamo_url.clone());
     upstream_req = upstream_req
         .header("accept-encoding", "identity")
         .header("via", "1.1 ecamo");
     upstream_req = proxy_headers_to_upstream(upstream_req, &downstream_req, &state.config);
 
     if proxy_token.ecamo_send_token {
-        let upstream_token =
-            AnonymousIDToken::new(&url, &proxy_token.ecamo_service_origin, &state.config);
+        let upstream_token = AnonymousIDToken::new(
+            &proxy_token.ecamo_url,
+            &proxy_token.ecamo_service_origin,
+            &state.config,
+        );
         let mut authorization_hv = reqwest::header::HeaderValue::from_str(&format!(
             "Bearer {}",
             upstream_token.encode(&state.signing_key)?

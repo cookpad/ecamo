@@ -18,7 +18,7 @@ fn make_proxy_token(env: &Environment, url: String) -> (String, String) {
         "prv",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: url,
+            ecamo_url: url::Url::parse(&url).unwrap(),
             ecamo_send_token: false,
         },
         60,
@@ -51,7 +51,7 @@ async fn test_proxy_invalid_token_key() {
         "prv",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
         60,
@@ -82,7 +82,7 @@ async fn test_proxy_invalid_token_iss() {
         "prv",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
         60,
@@ -113,7 +113,7 @@ async fn test_proxy_invalid_token_exp() {
         "prv",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
         -3600,
@@ -407,7 +407,7 @@ async fn test_proxy_send_token() {
         "prv",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: mockserv.url("/guarded.gif").to_string(),
+            ecamo_url: url::Url::parse(mockserv.url("/guarded.gif").to_string().as_ref()).unwrap(),
             ecamo_send_token: true,
         },
         60,

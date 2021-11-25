@@ -29,7 +29,7 @@ pub struct UrlToken {
     pub iss: String,
 
     #[serde(rename = "ecamo:url")]
-    pub ecamo_url: String,
+    pub ecamo_url: url::Url,
 
     #[serde(rename = "ecamo:send-token", default)]
     pub ecamo_send_token: bool,
@@ -55,7 +55,18 @@ impl UrlToken {
         validation.iss = Some(iss.to_string());
         validation.validate_exp = false;
 
-        Ok(jsonwebtoken::decode::<UrlToken>(token, key, &validation).map(|d| d.claims)?)
+        match jsonwebtoken::decode::<UrlToken>(token, key, &validation) {
+            Ok(d) => Ok(d.claims),
+            Err(e) => {
+                match e.kind() {
+                    jsonwebtoken::errors::ErrorKind::Json(je) if je.is_data() => {
+                        // XXX: it should be url error during deserialization...
+                        Err(Error::TokenDeserializationError)
+                    }
+                    _ => Err(Error::JWTError(e)),
+                }
+            }
+        }
     }
 }
 
@@ -98,7 +109,7 @@ pub struct ProxyToken {
     pub ecamo_service_origin: String,
 
     #[serde(rename = "ecamo:url")]
-    pub ecamo_url: String,
+    pub ecamo_url: url::Url,
 
     #[serde(rename = "ecamo:tok", default)]
     pub ecamo_send_token: bool,
@@ -148,14 +159,14 @@ impl ProxyToken {
 
     pub fn digest(&self) -> String {
         use sha2::Digest;
-        let dgst = sha2::Sha384::digest(self.ecamo_url.as_bytes());
+        let dgst = sha2::Sha384::digest(self.ecamo_url.as_str().as_bytes());
         base64::encode_config(dgst, base64::URL_SAFE_NO_PAD)
     }
 
     pub fn verify(&self, digest: &str) -> Result<(), Error> {
         use sha2::Digest;
 
-        let expected_dgst = sha2::Sha384::digest(self.ecamo_url.as_bytes());
+        let expected_dgst = sha2::Sha384::digest(self.ecamo_url.as_str().as_bytes());
         let actual_dgst = base64::decode_config(digest, base64::URL_SAFE_NO_PAD)?;
 
         // Note: no need to use constant_time_eq as an actual URL is stored in ProxyToken JWT

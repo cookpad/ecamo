@@ -156,12 +156,9 @@ impl HttptestAnonymousIDTokenMatcher<'_> {
         validation.iss = Some("https://ecamo.test.invalid".to_string());
         validation.set_audience(&[&self.aud]);
 
-        let payload = jsonwebtoken::decode::<ecamo::token::AnonymousIDToken>(
-            token,
-            &self.key,
-            &validation,
-        )
-        .map(|d| d.claims)?;
+        let payload =
+            jsonwebtoken::decode::<ecamo::token::AnonymousIDToken>(token, &self.key, &validation)
+                .map(|d| d.claims)?;
 
         if payload.ecamo_service_origin != self.svc {
             return Err(Error::UnknownError("invalid svc".to_owned()));
@@ -202,5 +199,29 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("HttptestAnonymousIDTokenMatcher")
+    }
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct UrlTokenInString {
+    pub iss: String,
+
+    #[serde(rename = "ecamo:url")]
+    pub ecamo_url: String,
+}
+
+impl UrlTokenInString {
+    pub fn encode(
+        key: &jsonwebtoken::EncodingKey,
+        kid: &str,
+
+        iss: String,
+        ecamo_url: String,
+    ) -> String {
+        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
+        header.kid = Some(kid.to_string());
+        let payload = Self { iss, ecamo_url };
+
+        jsonwebtoken::encode(&header, &payload, key).unwrap()
     }
 }

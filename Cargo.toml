@@ -26,7 +26,7 @@ serde_regex = "1"
 serde_with = "1"
 sha2 = "0.9"
 thiserror = "1"
-url = "2"
+url = { version = "2.2.2", features = ["serde"] }
 
 [dependencies.jsonwebkey]
 features = [

@@ -9,7 +9,7 @@ fn make_valid_url_token(env: &Environment) -> String {
         "svc1",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
     )
@@ -34,7 +34,7 @@ async fn test_redirect_invalid_service() {
         "isvc",
         ecamo::token::UrlToken {
             iss: "https://invalid-service.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
     );
@@ -72,7 +72,7 @@ async fn test_redirect_invalid_url_token_key() {
         "svc1",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
     );
@@ -97,7 +97,7 @@ async fn test_redirect_invalid_url_token_iss() {
         "svc1",
         ecamo::token::UrlToken {
             iss: "https://service2.test.invalid".to_owned(),
-            ecamo_url: "http://upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
     );
@@ -122,7 +122,9 @@ async fn test_redirect_invalid_source() {
         "svc1",
         ecamo::token::UrlToken {
             iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://unallowed-upstream.test.invalid/test".to_owned(),
+            ecamo_url: "http://unallowed-upstream.test.invalid/test"
+                .try_into()
+                .unwrap(),
             ecamo_send_token: false,
         },
     );
@@ -142,14 +144,11 @@ async fn test_redirect_invalid_source_format() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let token = test::encode_url_token(
+    let token = UrlTokenInString::encode(
         &env.test_config.service_key_1,
         "svc1",
-        ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
-            ecamo_url: "http://in%va~lid.test.invalid".to_owned(),
-            ecamo_send_token: false,
-        },
+        "https://service1.test.invalid".to_owned(),
+        "http://in%va~lid.test.invalid".try_into().unwrap(),
     );
 
     let resp = http
@@ -336,6 +335,9 @@ async fn test_redirect_proxy() {
         proxy_token.ecamo_service_origin,
         "https://service1.test.invalid"
     );
-    assert_eq!(proxy_token.ecamo_url, "http://upstream.test.invalid/test");
+    assert_eq!(
+        proxy_token.ecamo_url.as_str(),
+        "http://upstream.test.invalid/test"
+    );
     assert_eq!(proxy_token.ecamo_send_token, false);
 }

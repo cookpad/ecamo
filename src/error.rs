@@ -27,6 +27,9 @@ pub enum Error {
     #[error("cannot build or parse given url")]
     UrlError(#[from] url::ParseError),
 
+    #[error("unable to deserialize given JWT, likely failed to parse URL")]
+    TokenDeserializationError,
+
     #[error("request error")]
     SourceRequestError(#[from] reqwest::Error),
 
@@ -57,6 +60,7 @@ impl Error {
             Self::SourceResponseTooLargeError => "source-response-too-large",
             Self::InallowedContentTypeError => "unallowed-content-type",
             Self::UrlError(_) => "url",
+            Self::TokenDeserializationError => "token-deserialization",
             _ => "unknown",
         }
     }
@@ -76,6 +80,7 @@ impl actix_web::ResponseError for Error {
             Self::SourceResponseTooLargeError => actix_http::StatusCode::FORBIDDEN,
             Self::InallowedContentTypeError => actix_http::StatusCode::FORBIDDEN,
             Self::UrlError(_) => actix_http::StatusCode::BAD_REQUEST,
+            Self::TokenDeserializationError => actix_http::StatusCode::BAD_REQUEST,
             _ => actix_http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
