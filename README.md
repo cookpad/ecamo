@@ -29,6 +29,7 @@ Then Ecamo will redirect this URL to Ecamo's _canonical origin_ with a short-liv
 
 Configuration is done through environment variables.
 
+- `ECAMO_BIND` (default: `[::]:3000`): bind address
 - `ECAMO_CANONICAL_HOST` (required): HTTP Host header value of an _canonical origin._ Used to serve actual content.
 - `ECAMO_SERVICE_PUBLIC_KEYS` (required): JSON object where key is `"${SERVICE_ORIGIN} ${kid}"` and value is JWK object, used by services for signing an authorisation cookie and an ecamo URL. Supports ES256 keys. e.g. `{"https://service.test.invalid key_1": {"kid": "key_1", ...}}`
 - `ECAMO_PRIVATE_KEYS` (required): JSON object where key is token `kid` and value is JWK object, used by Ecamo for signing an short-lived authorization token in URL and request header. Supports ES256 keys. 
