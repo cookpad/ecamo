@@ -1,4 +1,5 @@
 use actix_web::{web, HttpResponse};
+use futures::StreamExt;
 
 use crate::config::Config;
 use crate::error::Error;
@@ -360,11 +361,15 @@ fn proxy_stream_response(
 
     // TODO: "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
-    let stream = resp.bytes_stream();
     if chunking {
-        let lstream = crate::limited_stream::LimitedStream::new(stream, state.config.max_length);
-        Ok(downstream_resp.streaming(lstream))
+        proxy_stream_with_limit(
+            proxy_token.url().to_owned(),
+            downstream_resp,
+            resp,
+            state.config.max_length,
+        )
     } else {
+        let stream = resp.bytes_stream();
         Ok(downstream_resp.streaming(stream))
     }
 }
@@ -411,20 +416,19 @@ fn proxy_handle_upstream_error(
 }
 
 fn proxy_headers_to_upstream(
-    upstream: reqwest::RequestBuilder,
+    mut upstream: reqwest::RequestBuilder,
     downstream: &'_ actix_web::HttpRequest,
     _config: &Config,
 ) -> reqwest::RequestBuilder {
-    let mut req = upstream;
     macro_rules! proxy_headers_transfer {
         ($k:literal) => {
             if let Some(Ok(v)) = downstream.headers().get($k).map(|hv| hv.to_str()) {
-                req = req.header($k, v);
+                upstream = upstream.header($k, v);
             }
         };
     }
     proxy_headers_transfer!("accept");
-    req
+    upstream
 }
 
 fn proxy_headers_to_downstream<'a>(
@@ -458,21 +462,39 @@ fn proxy_headers_to_downstream<'a>(
     }
 }
 
-// ----
+#[derive(thiserror::Error, Debug)]
+enum LimitedStreamError {
+    #[error("Too long")]
+    TooLong,
+    #[error(transparent)]
+    Reqwest(reqwest::Error),
+}
 
-//#[cfg(test)]
-//mod tests {
-//    use super::*;
-//
-//    fn init() {
-//        let _ = env_logger::builder().is_test(true).try_init();
-//    }
-//
-//    fn mock_config_and_state() -> (crate::test::TestConfig, AppState<'static>) {
-//        init();
-//        let test_config = crate::test::TestConfig::new();
-//        let upstream = AppUpstream::new(&test_config.app_config, None);
-//        let app_state = AppState::new(&test_config.app_config, upstream);
-//        (test_config, app_state)
-//    }
-//}
+fn proxy_stream_with_limit(
+    url: String,
+    mut downstream: actix_web::HttpResponseBuilder,
+    resp: reqwest::Response,
+    limit: u64,
+) -> Result<HttpResponse, Error> {
+    let mut count: u64 = 0;
+    let stream = resp.bytes_stream().map(move |chunk| match chunk {
+        Ok(chunk) => {
+            let len: u64 = chunk.len().try_into().expect("chunk size over u64...");
+            count += len;
+            if count >= limit {
+                log::warn!(
+                    "chunked stream is halted (limit={}, count={}, url={})",
+                    limit,
+                    count,
+                    url
+                );
+                Err(LimitedStreamError::TooLong)
+            } else {
+                Ok(chunk)
+            }
+        }
+        Err(e) => Err(LimitedStreamError::Reqwest(e)),
+    });
+
+    Ok(downstream.streaming(stream))
+}
