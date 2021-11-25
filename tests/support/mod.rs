@@ -189,7 +189,7 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
                 _ => return false,
             };
 
-            return match self.attempt(&token) {
+            return match self.attempt(token) {
                 Ok(_) => true,
                 Err(e) => {
                     log::warn!("HttptestAnonymousIDTokenMatcher: e={:?}", e);
@@ -197,7 +197,7 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
                 }
             };
         }
-        return false;
+        false
     }
 
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

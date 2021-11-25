@@ -305,7 +305,7 @@ async fn do_proxy(
     }
 
     if let Some(len) = resp.content_length() {
-        if len > state.config.max_length.into() {
+        if len > state.config.max_length {
             return Err(Error::SourceResponseTooLargeError);
         }
     }
@@ -401,12 +401,12 @@ fn proxy_handle_upstream_error(
     downstream_resp.insert_header(("x-ecamo-error", "source-response"));
     downstream_resp.insert_header(("x-ecamo-error-origin", "source"));
 
-    return Ok(downstream_resp.body(body));
+    Ok(downstream_resp.body(body))
 }
 
-fn proxy_headers_to_upstream<'a>(
+fn proxy_headers_to_upstream(
     upstream: reqwest::RequestBuilder,
-    downstream: &'a actix_web::HttpRequest,
+    downstream: &'_ actix_web::HttpRequest,
     _config: &Config,
 ) -> reqwest::RequestBuilder {
     let mut req = upstream;
@@ -418,7 +418,7 @@ fn proxy_headers_to_upstream<'a>(
         };
     }
     proxy_headers_transfer!("accept");
-    return req;
+    req
 }
 
 fn proxy_headers_to_downstream<'a>(
