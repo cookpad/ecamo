@@ -119,7 +119,7 @@ pub struct Config {
     #[serde(default = "default_default_cache_control")]
     pub default_cache_control: String,
 
-    #[serde(default = "bool::default")]
+    #[serde(default)]
     pub insecure: bool,
 }
 
