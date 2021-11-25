@@ -31,7 +31,8 @@ pub async fn run(
         actix_web::App::new()
             .wrap(logger)
             .app_data(web::Data::new(app_state.clone()))
-            .service(index)
+            .service(serve_index)
+            .service(serve_health)
             .service(serve_redirect)
             .service(serve_proxy)
     });
@@ -123,8 +124,13 @@ async fn launch_internal_proxy() -> reqwest::Url {
 }
 
 #[actix_web::get("/")]
-async fn index() -> actix_web::Result<HttpResponse> {
+async fn serve_index() -> actix_web::Result<HttpResponse> {
     Ok(HttpResponse::Ok().body("ecamo"))
+}
+
+#[actix_web::get("/healthz")]
+async fn serve_health() -> actix_web::Result<HttpResponse> {
+    Ok(HttpResponse::Ok().body("ok"))
 }
 
 #[actix_web::get("/{prefix}/v1/r/{token}")]
