@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse};
 use futures::StreamExt;
+use jwt_simple::algorithms::ECDSAP256KeyPairLike;
 
 use crate::config::Config;
 use crate::error::Error;
@@ -46,19 +47,19 @@ pub async fn run(
     Ok(server)
 }
 
-#[derive(Debug, Clone)]
-struct AppState<'a> {
+#[derive(Clone)]
+struct AppState {
     config: Config,
-    signing_key: jsonwebkey::JsonWebKey,
-    signing_decoding_keys: std::collections::HashMap<String, jsonwebtoken::DecodingKey<'a>>,
-    service_decoding_keys: std::collections::HashMap<String, jsonwebtoken::DecodingKey<'a>>,
+    signing_key: std::sync::Arc<jwt_simple::algorithms::ES256KeyPair>,
+    signing_decoding_keys: crate::config::PublicKeyBucket,
+    service_decoding_keys: crate::config::PublicKeyBucket,
     upstream: AppUpstream,
 }
 
-impl AppState<'_> {
+impl AppState {
     fn new(config: &Config, upstream: AppUpstream) -> Self {
         Self {
-            signing_key: config.signing_key().unwrap(),
+            signing_key: std::sync::Arc::new(config.signing_key().unwrap()),
             signing_decoding_keys: config.signing_decoding_keys(),
             service_decoding_keys: config.service_decoding_keys(),
             config: config.clone(),
@@ -136,7 +137,7 @@ async fn serve_health() -> actix_web::Result<HttpResponse> {
 
 #[actix_web::get("/{prefix}/v1/r/{token}")]
 async fn serve_redirect(
-    state: web::Data<AppState<'_>>,
+    state: web::Data<AppState>,
     path: web::Path<(String, String)>,
     req: actix_web::HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -145,7 +146,7 @@ async fn serve_redirect(
 
     let url_token = UrlToken::decode(&token, &service_origin, &state.service_decoding_keys)?;
 
-    if !url_token.is_valid_source(&state.config) {
+    if !url_token.custom.is_valid_source(&state.config) {
         return Err(Error::UnallowedSourceError);
     }
 
@@ -155,7 +156,7 @@ async fn serve_redirect(
                 "redirect",
                 &service_origin,
                 "src-fetch-dest",
-                url_token.ecamo_url,
+                url_token.custom.ecamo_url,
             ));
         }
     }
@@ -167,7 +168,7 @@ async fn serve_redirect(
                 "redirect",
                 &service_origin,
                 "auth-cookie-missing",
-                url_token.ecamo_url,
+                url_token.custom.ecamo_url,
             ))
         }
     };
@@ -181,14 +182,14 @@ async fn serve_redirect(
         &state.service_decoding_keys,
     )?;
 
-    let proxy_token = ProxyToken::new(&url_token, &state.config);
+    let proxy_token = ProxyToken::new(&url_token, &state.config)?;
 
     let loc = canonical_origin.join(
         format!(
             "/{}/v1/p/{}?t={}",
             state.config.prefix,
-            &proxy_token.digest(),
-            &proxy_token.encode(&state.signing_key)?
+            &proxy_token.custom.digest(),
+            &state.signing_key.sign(proxy_token)?,
         )
         .as_ref(),
     )?;
@@ -211,7 +212,7 @@ struct ProxyQuery {
 
 #[actix_web::get("/{prefix}/v1/p/{digest}")]
 async fn serve_proxy(
-    state: web::Data<AppState<'_>>,
+    state: web::Data<AppState>,
     path: web::Path<(String, String)>,
     query: web::Query<ProxyQuery>,
     req: actix_web::HttpRequest,
@@ -225,23 +226,23 @@ async fn serve_proxy(
 
     let proxy_token = ProxyToken::decode(&query.t, &state.signing_decoding_keys)?;
 
-    if !proxy_token.is_valid_source(&state.config) {
+    if !proxy_token.custom.is_valid_source(&state.config) {
         return Err(Error::UnallowedSourceError);
     }
-    proxy_token.verify(&digest)?;
+    proxy_token.custom.verify(&digest)?;
 
     if let Some(Ok(dest)) = req.headers().get("sec-fetch-dest").map(|hv| hv.to_str()) {
         if dest == "document" {
             return Ok(do_redirect_to_source(
                 "proxy",
-                &proxy_token.ecamo_service_origin,
+                &proxy_token.custom.ecamo_service_origin,
                 "src-fetch-dest",
-                proxy_token.ecamo_url,
+                proxy_token.custom.ecamo_url,
             ));
         }
     }
 
-    Ok(do_proxy(state, req, proxy_token).await?)
+    Ok(do_proxy(state, req, proxy_token.custom).await?)
 }
 
 fn do_redirect_to_source(
@@ -269,7 +270,7 @@ fn do_redirect_to_source(
 }
 
 async fn do_proxy(
-    state: web::Data<AppState<'_>>,
+    state: web::Data<AppState>,
     downstream_req: actix_web::HttpRequest,
     proxy_token: ProxyToken,
 ) -> Result<HttpResponse, Error> {
@@ -292,7 +293,7 @@ async fn do_proxy(
         );
         let mut authorization_hv = reqwest::header::HeaderValue::from_str(&format!(
             "Bearer {}",
-            upstream_token.encode(&state.signing_key)?
+            state.signing_key.sign(upstream_token)?,
         ))
         .expect("failed to construct bearer token");
         authorization_hv.set_sensitive(true);
@@ -335,7 +336,7 @@ async fn do_proxy(
 fn proxy_stream_response(
     proxy_token: ProxyToken,
     resp: reqwest::Response,
-    state: web::Data<AppState<'_>>,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let mut downstream_resp = HttpResponse::Ok();
     downstream_resp
@@ -380,7 +381,7 @@ fn proxy_stream_response(
 fn proxy_handle_upstream_error(
     proxy_token: ProxyToken,
     resp: reqwest::Response,
-    state: web::Data<AppState<'_>>,
+    state: web::Data<AppState>,
 ) -> Result<HttpResponse, Error> {
     let (status, body) = if resp.status().is_client_error() || resp.status().is_server_error() {
         (

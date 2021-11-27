@@ -1,3 +1,5 @@
+use elliptic_curve::sec1::ToEncodedPoint;
+
 fn default_prefix() -> String {
     ".ecamo".to_string()
 }
@@ -14,7 +16,7 @@ fn default_max_length() -> u64 {
     5242880
 }
 
-fn default_token_lifetime() -> i64 {
+fn default_token_lifetime() -> u64 {
     45
 }
 
@@ -86,10 +88,10 @@ pub struct Config {
 
     pub canonical_host: String,
 
-    pub private_keys: std::collections::HashMap<String, jsonwebkey::JsonWebKey>,
-    pub service_public_keys: std::collections::HashMap<String, jsonwebkey::JsonWebKey>,
+    pub private_keys: std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
+    pub service_public_keys: std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
 
-    pub signing_kid: Option<String>,
+    pub signing_kid: String,
 
     #[serde(with = "serde_regex")]
     pub service_host_regexp: Option<regex::Regex>,
@@ -105,7 +107,7 @@ pub struct Config {
     #[serde(default = "default_max_redirects")]
     pub max_redirects: u64,
     #[serde(default = "default_token_lifetime")]
-    pub token_lifetime: i64,
+    pub token_lifetime: u64,
     #[serde(default = "default_timeout")]
     pub timeout: u64,
     #[serde(default = "default_max_length")]
@@ -123,49 +125,34 @@ pub struct Config {
     pub insecure: bool,
 }
 
+pub type PublicKeyBucket =
+    std::collections::HashMap<String, jwt_simple::algorithms::ES256PublicKey>;
+
 impl Config {
-    pub fn signing_key(&self) -> Result<jsonwebkey::JsonWebKey, crate::error::Error> {
-        if self.private_keys.is_empty() {
-            return Err(crate::error::Error::UndeterminableKeyError);
-        }
-        let jwk = if self.private_keys.len() == 1 {
-            self.private_keys
-                .values()
-                .next()
-                .expect("no private key present")
-        } else {
-            let kid = self
-                .signing_kid
-                .as_ref()
-                .ok_or(crate::error::Error::UndeterminableKeyError)?;
-            self.private_keys
-                .get(kid)
-                .ok_or_else(|| crate::error::Error::UnknownKeyError(kid.clone()))?
-        };
+    // why jwt-simple doesn't provide a way to instantiate a key pair from ecdsa crate object?
 
-        if jwk.key_id.is_none() {
-            return Err(crate::error::Error::MissingKeyIdError);
-        }
+    pub fn signing_key(&self) -> Result<jwt_simple::algorithms::ES256KeyPair, crate::error::Error> {
+        let key = self
+            .private_keys
+            .get(&self.signing_kid)
+            .ok_or_else(|| crate::error::Error::UnknownKeyError(self.signing_kid.clone()))?;
+        // TODO: Assert key.crv()
+        let secret_key = elliptic_curve::SecretKey::<p256::NistP256>::from_jwk(key)?;
+        let signing_key = ecdsa::SigningKey::from(secret_key);
 
-        Ok(jwk.clone())
+        Ok(
+            jwt_simple::algorithms::ES256KeyPair::from_bytes(signing_key.to_bytes().as_ref())
+                .unwrap()
+                .with_key_id(&self.signing_kid),
+        )
     }
 
-    pub fn signing_decoding_keys<'a>(
-        &self,
-    ) -> std::collections::HashMap<String, jsonwebtoken::DecodingKey<'a>> {
-        self.private_keys
-            .iter()
-            .map(|(kid, jwk)| (kid.clone(), jwk.key.to_decoding_key()))
-            .collect()
+    pub fn signing_decoding_keys(&self) -> PublicKeyBucket {
+        make_jwk_hashmap(&self.private_keys)
     }
 
-    pub fn service_decoding_keys<'a>(
-        &self,
-    ) -> std::collections::HashMap<String, jsonwebtoken::DecodingKey<'a>> {
-        self.service_public_keys
-            .iter()
-            .map(|(kid, jwk)| (kid.clone(), jwk.key.to_decoding_key()))
-            .collect()
+    pub fn service_decoding_keys(&self) -> PublicKeyBucket {
+        make_jwk_hashmap(&self.service_public_keys)
     }
 
     pub fn auth_cookie_name(&self) -> &str {
@@ -180,4 +167,20 @@ impl Config {
             }
         }
     }
+}
+
+fn make_jwk_hashmap(
+    keys: &std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
+) -> PublicKeyBucket {
+    keys.iter()
+        .map(|(kid, jwk)| {
+            let public_key =
+                elliptic_curve::PublicKey::<p256::NistP256>::from_jwk(jwk).expect("TODO:");
+            let jwtkey = jwt_simple::algorithms::ES256PublicKey::from_bytes(
+                public_key.to_encoded_point(false).as_bytes(),
+            )
+            .unwrap();
+            (kid.clone(), jwtkey)
+        })
+        .collect()
 }

@@ -1,6 +1,9 @@
 use crate::config::Config;
 use crate::error::Error;
 
+use jwt_simple::algorithms::ECDSAP256PublicKeyLike;
+use jwt_simple::claims::JWTClaims;
+
 pub trait TokenWithSourceUrl {
     fn is_valid_source(&self, config: &Config) -> bool {
         // Note this doesn't perform check of private source
@@ -26,8 +29,6 @@ pub trait TokenWithSourceUrl {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct UrlToken {
-    pub iss: String,
-
     #[serde(rename = "ecamo:url")]
     pub ecamo_url: url::Url,
 
@@ -39,31 +40,34 @@ impl UrlToken {
     pub fn decode(
         token: &str,
         iss: &str,
-        keys: &std::collections::HashMap<String, jsonwebtoken::DecodingKey>,
-    ) -> Result<Self, Error> {
-        let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
+        keys: &crate::config::PublicKeyBucket,
+    ) -> Result<JWTClaims<Self>, Error> {
+        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
 
-        let kid = header
-            .kid
+        let kid = metadata
+            .key_id()
             .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
         let key_name = format!("{} {}", iss, kid);
         let key = keys
             .get(&key_name)
             .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
-        validation.iss = Some(iss.to_string());
-        validation.validate_exp = false;
+        let mut verification = jwt_simple::common::VerificationOptions::default();
+        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
+            [iss.to_string()].into_iter(),
+        ));
 
-        match jsonwebtoken::decode::<UrlToken>(token, key, &validation) {
-            Ok(d) => Ok(d.claims),
-            Err(e) => {
-                match e.kind() {
-                    jsonwebtoken::errors::ErrorKind::Json(je) if je.is_data() => {
-                        // XXX: it should be url error during deserialization...
-                        Err(Error::TokenDeserializationError)
-                    }
-                    _ => Err(Error::JWTError(e)),
+        match key.verify_token::<Self>(&token, Some(verification)) {
+            Ok(claims) => Ok(claims),
+            Err(jwt_error) => {
+                // anyhow
+                if let Some(serde_error) =
+                    jwt_error.root_cause().downcast_ref::<serde_json::Error>()
+                {
+                    // XXX: it should be url error during deserialization...
+                    Err(Error::TokenDeserializationError(serde_error.to_string()))
+                } else {
+                    Err(jwt_error.into())
                 }
             }
         }
@@ -80,31 +84,31 @@ pub fn decode_service_auth_token(
     token: &str,
     aud: &str,
     iss: &str,
-    keys: &std::collections::HashMap<String, jsonwebtoken::DecodingKey>,
-) -> Result<serde_json::Value, Error> {
-    let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
+    keys: &crate::config::PublicKeyBucket,
+) -> Result<JWTClaims<serde_json::Value>, Error> {
+    let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
 
-    let kid = header
-        .kid
+    let kid = metadata
+        .key_id()
         .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
     let key_name = format!("{} {}", iss, kid);
     let key = keys
         .get(&key_name)
         .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
-    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
-    validation.set_audience(&[aud]);
-    validation.iss = Some(iss.to_string());
+    let mut verification = jwt_simple::common::VerificationOptions::default();
+    verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
+        [aud.to_string()].into_iter(),
+    ));
+    verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
+        [iss.to_string()].into_iter(),
+    ));
 
-    Ok(jsonwebtoken::decode::<serde_json::Value>(token, key, &validation).map(|d| d.claims)?)
+    Ok(key.verify_token::<serde_json::Value>(&token, Some(verification))?)
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct ProxyToken {
-    pub iss: String,
-    pub aud: String,
-    pub exp: i64,
-
     #[serde(rename = "ecamo:svc")]
     pub ecamo_service_origin: String,
 
@@ -116,45 +120,48 @@ pub struct ProxyToken {
 }
 
 impl ProxyToken {
-    pub fn new(url_token: &UrlToken, config: &Config) -> Self {
-        let exp = chrono::Utc::now() + chrono::Duration::seconds(config.token_lifetime);
+    pub fn new(url_token: &JWTClaims<UrlToken>, config: &Config) -> Result<JWTClaims<Self>, Error> {
+        let custom_claims = Self {
+            ecamo_service_origin: url_token
+                .issuer
+                .as_ref()
+                .ok_or_else(|| Error::MissingClaimError("iss".to_owned()))?
+                .clone(),
+            ecamo_url: url_token.custom.ecamo_url.clone(),
+            ecamo_send_token: url_token.custom.ecamo_send_token,
+        };
 
-        Self {
-            iss: "ecamo:s".to_owned(),
-            aud: "ecamo:p".to_owned(),
-            exp: exp.timestamp(),
-            ecamo_service_origin: url_token.iss.clone(),
-            ecamo_url: url_token.ecamo_url.clone(),
-            ecamo_send_token: url_token.ecamo_send_token,
-        }
-    }
-
-    pub fn encode(&self, jwk: &jsonwebkey::JsonWebKey) -> Result<String, Error> {
-        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
-        header.kid = Some(jwk.key_id.clone().ok_or(Error::MissingKeyIdError)?);
-        let token = jsonwebtoken::encode(&header, &self, &jwk.key.to_encoding_key())?;
-        Ok(token)
+        Ok(jwt_simple::claims::Claims::with_custom_claims(
+            custom_claims,
+            std::time::Duration::new(config.token_lifetime, 0).into(),
+        )
+        .with_issuer("ecamo:s")
+        .with_audience("ecamo:p"))
     }
 
     pub fn decode(
         token: &str,
-        keys: &std::collections::HashMap<String, jsonwebtoken::DecodingKey>,
-    ) -> Result<Self, Error> {
-        let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
+        keys: &crate::config::PublicKeyBucket,
+    ) -> Result<JWTClaims<Self>, Error> {
+        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
 
-        let kid = header
-            .kid
-            .ok_or_else(|| Error::MissingClaimError("no kid present in header".to_string()))?;
+        let kid = metadata
+            .key_id()
+            .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?
+            .to_string();
         let key = keys
             .get(&kid)
             .ok_or_else(|| Error::UnknownKeyError(kid.clone()))?;
 
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
-        validation.iss = Some("ecamo:s".to_owned());
-        validation.set_audience(&["ecamo:p"]);
+        let mut verification = jwt_simple::common::VerificationOptions::default();
+        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
+            ["ecamo:s".to_owned()].into_iter(),
+        ));
+        verification.allowed_audiences = Some(std::collections::HashSet::from_iter(
+            ["ecamo:p".to_owned()].into_iter(),
+        ));
 
-        let token = jsonwebtoken::decode::<Self>(token, key, &validation).map(|d| d.claims)?;
-        Ok(token)
+        Ok(key.verify_token::<Self>(&token, Some(verification))?)
     }
 
     pub fn digest(&self) -> String {
@@ -189,35 +196,21 @@ impl TokenWithSourceUrl for ProxyToken {
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 pub struct AnonymousIDToken {
-    pub iss: String,
-    pub sub: String,
-    pub aud: String,
-    pub exp: i64,
-    pub iat: i64,
-
     #[serde(rename = "ecamo:svc")]
     pub ecamo_service_origin: String,
 }
 
 impl AnonymousIDToken {
-    pub fn new(url: &url::Url, service_origin: &str, config: &Config) -> Self {
-        let now = chrono::Utc::now();
-        let exp = now + chrono::Duration::seconds(config.token_lifetime);
-
-        Self {
-            iss: format!("https://{}", config.canonical_host),
-            sub: "anonymous".to_owned(),
-            aud: url.origin().ascii_serialization(),
-            exp: exp.timestamp(),
-            iat: now.timestamp(),
+    pub fn new(url: &url::Url, service_origin: &str, config: &Config) -> JWTClaims<Self> {
+        let custom_claims = Self {
             ecamo_service_origin: service_origin.to_string(),
-        }
-    }
-
-    pub fn encode(&self, jwk: &jsonwebkey::JsonWebKey) -> Result<String, Error> {
-        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
-        header.kid = jwk.key_id.clone();
-        let token = jsonwebtoken::encode(&header, &self, &jwk.key.to_encoding_key())?;
-        Ok(token)
+        };
+        jwt_simple::claims::Claims::with_custom_claims(
+            custom_claims,
+            std::time::Duration::new(config.token_lifetime, 0).into(),
+        )
+        .with_issuer(format!("https://{}", config.canonical_host))
+        .with_subject("anonymous")
+        .with_audience(url.origin().ascii_serialization())
     }
 }

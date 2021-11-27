@@ -15,13 +15,12 @@ macro_rules! assert_response_header {
 fn make_proxy_token(env: &Environment, url: String) -> (String, String) {
     test::encode_proxy_token(
         &env.test_config.private_key,
-        "prv",
         ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
             ecamo_url: url::Url::parse(&url).unwrap(),
             ecamo_send_token: false,
         },
-        60,
+        "https://service1.test.invalid",
+        Some(60),
         true,
     )
 }
@@ -48,13 +47,12 @@ async fn test_proxy_invalid_token_key() {
 
     let (dgst, token) = test::encode_proxy_token(
         &env.test_config.service_key_1,
-        "prv",
         ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
             ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
-        60,
+        "https://service1.test.invalid",
+        Some(60),
         true,
     );
 
@@ -79,13 +77,12 @@ async fn test_proxy_invalid_token_iss() {
 
     let (dgst, token) = test::encode_proxy_token(
         &env.test_config.private_key,
-        "prv",
         ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
             ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
-        60,
+        "https://service1.test.invalid",
+        Some(60),
         false,
     );
 
@@ -110,13 +107,12 @@ async fn test_proxy_invalid_token_exp() {
 
     let (dgst, token) = test::encode_proxy_token(
         &env.test_config.private_key,
-        "prv",
         ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
             ecamo_url: "http://upstream.test.invalid/test".try_into().unwrap(),
             ecamo_send_token: false,
         },
-        -3600,
+        "https://service1.test.invalid",
+        None,
         true,
     );
 
@@ -404,13 +400,12 @@ async fn test_proxy_send_token() {
 
     let (dgst, token) = test::encode_proxy_token(
         &env.test_config.private_key,
-        "prv",
         ecamo::token::UrlToken {
-            iss: "https://service1.test.invalid".to_owned(),
             ecamo_url: url::Url::parse(mockserv.url("/guarded.gif").to_string().as_ref()).unwrap(),
             ecamo_send_token: true,
         },
-        60,
+        "https://service1.test.invalid",
+        Some(60),
         true,
     );
 

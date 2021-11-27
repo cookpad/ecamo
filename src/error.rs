@@ -15,8 +15,11 @@ pub enum Error {
     #[error("content too large")]
     SourceResponseTooLargeError,
 
-    #[error("jwterror")]
-    JWTError(#[from] jsonwebtoken::errors::Error),
+    #[error(transparent)]
+    ECError(#[from] elliptic_curve::Error),
+
+    #[error(transparent)]
+    JWTError(#[from] jwt_simple::Error),
 
     #[error("base64 decode error")]
     Base64DecodeError(#[from] base64::DecodeError),
@@ -24,17 +27,14 @@ pub enum Error {
     #[error("invalid token: {0}")]
     InvalidTokenError(String),
 
-    #[error("cannot build or parse given url")]
+    #[error(transparent)]
     UrlError(#[from] url::ParseError),
 
-    #[error("unable to deserialize given JWT, likely failed to parse URL")]
-    TokenDeserializationError,
+    #[error("unable to deserialize given JWT: {0}")]
+    TokenDeserializationError(String),
 
     #[error("request error")]
     SourceRequestError(#[from] reqwest::Error),
-
-    #[error("signing key is undeterminable; specify $ECAMO_SIGNING_KID")]
-    UndeterminableKeyError,
 
     #[error("signing key is missing kid")]
     MissingKeyIdError,
@@ -60,7 +60,7 @@ impl Error {
             Self::SourceResponseTooLargeError => "source-response-too-large",
             Self::InallowedContentTypeError => "unallowed-content-type",
             Self::UrlError(_) => "url",
-            Self::TokenDeserializationError => "token-deserialization",
+            Self::TokenDeserializationError(_) => "token-deserialization",
             _ => "unknown",
         }
     }
@@ -80,7 +80,7 @@ impl actix_web::ResponseError for Error {
             Self::SourceResponseTooLargeError => actix_http::StatusCode::FORBIDDEN,
             Self::InallowedContentTypeError => actix_http::StatusCode::FORBIDDEN,
             Self::UrlError(_) => actix_http::StatusCode::BAD_REQUEST,
-            Self::TokenDeserializationError => actix_http::StatusCode::BAD_REQUEST,
+            Self::TokenDeserializationError(_) => actix_http::StatusCode::BAD_REQUEST,
             _ => actix_http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

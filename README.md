@@ -33,7 +33,7 @@ Configuration is done through environment variables.
 - `ECAMO_CANONICAL_HOST` (required): HTTP Host header value of an _canonical origin._ Used to serve actual content.
 - `ECAMO_SERVICE_PUBLIC_KEYS` (required): JSON object where key is `"${SERVICE_ORIGIN} ${kid}"` and value is JWK object, used by services for signing an authorisation cookie and an ecamo URL. Supports ES256 keys. e.g. `{"https://service.test.invalid key_1": {"kid": "key_1", ...}}`
 - `ECAMO_PRIVATE_KEYS` (required): JSON object where key is token `kid` and value is JWK object, used by Ecamo for signing an short-lived authorization token in URL and request header. Supports ES256 keys. 
-- `ECAMO_SIGNING_KID`: `kid` to use primarily in `$ECAMO_PRIVATE_KEYS`. Required when `$ECAMO_PRIVATE_KEYS` contains multiple JWKs.
+- `ECAMO_SIGNING_KID`: `kid` to use primarily in `$ECAMO_PRIVATE_KEYS`.
 - `ECAMO_SERVICE_HOST_REGEXP`: Regexp to validate a _service origin_ Host header. when unspecified, any origins work as a _service origin_.
 - `ECAMO_SOURCE_ALLOWED_REGEXP`: Regexp to validate a source URL. When specified, any unmatching source URL will be denied.
 - `ECAMO_SOURCE_BLOCKED_REGEXP`: Regexp to reject a source URL. When specified, any matching source URL will be denied.
@@ -85,15 +85,17 @@ where:
 
 An _authorisation cookie_ is a JWT signed by a key specified in `$ECAMO_SIGNING_PUBLIC_KEYS`, with the following constraints. It should be stored to a cookie named a value of `$ECAMO_AUTH_COOKIE` (default to `__Host-ecamo_token`)
 
-- header:
+- Headers:
   - `alg`: Must be `ES256`
   - `kid`: Must be set to a one defined in `$ECAMO_SIGNING_PUBLIC_KEYS`
-- claims:
+- Claims:
   - `exp` must be provided.
   - `iss` must be identical to an web origin of _service origin._ (e.g. `https://service.test.invalid`)
   - `aud` must be set to an web origin of _canonical origin._ (e.g. `https://$ECAMO_CANONICAL_HOST`)
+- Recommendations:
+  - Align cookie expiration and token lifetime.
+  - Keep lifetime as short as possible. __[Using JWT in cookies is a terrible idea](http://cryto.net/~joepie91/blog/2016/06/13/stop-using-jwt-for-sessions/) in general,__ but we assume an application is doing their authentication at their own and the `ecamo-token` is derived from its session store. If `ecamo-token` can be derived from other session tokens, then its lifetime can be short.
 
-It is recommended to align cookie expiration and token lifetime.
 
 ## Misc
 

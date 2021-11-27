@@ -1,5 +1,6 @@
 use ecamo::error::Error;
 use ecamo::test;
+use jwt_simple::prelude::ECDSAP256PublicKeyLike;
 
 lazy_static::lazy_static! {
     pub static ref TEST_GIF: Vec<u8> = {
@@ -9,8 +10,8 @@ lazy_static::lazy_static! {
     };
 }
 
-pub struct Environment<'a> {
-    pub test_config: test::TestConfig<'a>,
+pub struct Environment {
+    pub test_config: test::TestConfig,
     pub url: reqwest::Url,
     pub upstream_mock: mockito::Mock,
     pub upstream_mock_large: mockito::Mock,
@@ -20,7 +21,7 @@ pub struct Environment<'a> {
     pub upstream_mock_text: mockito::Mock,
 }
 
-pub async fn init_and_spawn() -> Environment<'static> {
+pub async fn init_and_spawn() -> Environment {
     let _ = env_logger::builder().is_test(true).try_init();
     let test_config = crate::test::TestConfig::new();
 
@@ -135,32 +136,36 @@ fn upstream_mock_chunked_large_body(body: &mut dyn std::io::Write) -> std::io::R
     Ok(())
 }
 
-pub struct HttptestAnonymousIDTokenMatcher<'a> {
+pub struct HttptestAnonymousIDTokenMatcher {
     pub svc: String,
     pub aud: String,
-    pub key: jsonwebtoken::DecodingKey<'a>,
+    pub key: jwt_simple::algorithms::ES256PublicKey,
 }
 
-impl HttptestAnonymousIDTokenMatcher<'_> {
+impl HttptestAnonymousIDTokenMatcher {
     fn attempt(&self, token: &str) -> Result<(), Error> {
-        let header = jsonwebtoken::decode_header(token).map_err(Error::JWTError)?;
+        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
 
-        let kid = header
-            .kid
+        let kid = metadata
+            .key_id()
             .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
         if kid != "prv" {
             return Err(Error::UnknownKeyError("kid != prv".to_owned()));
         }
 
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::ES256);
-        validation.iss = Some("https://ecamo.test.invalid".to_string());
-        validation.set_audience(&[&self.aud]);
+        let mut verification = jwt_simple::common::VerificationOptions::default();
+        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
+            ["https://ecamo.test.invalid".to_owned()].into_iter(),
+        ));
+        verification.allowed_audiences = Some(std::collections::HashSet::from_iter(
+            [self.aud.clone()].into_iter(),
+        ));
 
-        let payload =
-            jsonwebtoken::decode::<ecamo::token::AnonymousIDToken>(token, &self.key, &validation)
-                .map(|d| d.claims)?;
+        let claims = self
+            .key
+            .verify_token::<ecamo::token::AnonymousIDToken>(token, Some(verification))?;
 
-        if payload.ecamo_service_origin != self.svc {
+        if claims.custom.ecamo_service_origin != self.svc {
             return Err(Error::UnknownError("invalid svc".to_owned()));
         }
 
@@ -169,7 +174,7 @@ impl HttptestAnonymousIDTokenMatcher<'_> {
 }
 
 impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
-    for HttptestAnonymousIDTokenMatcher<'_>
+    for HttptestAnonymousIDTokenMatcher
 {
     fn matches(
         &mut self,
@@ -202,26 +207,8 @@ impl httptest::matchers::Matcher<[httptest::matchers::KV<str, bstr::BStr>]>
     }
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UrlTokenInString {
-    pub iss: String,
-
     #[serde(rename = "ecamo:url")]
     pub ecamo_url: String,
-}
-
-impl UrlTokenInString {
-    pub fn encode(
-        key: &jsonwebtoken::EncodingKey,
-        kid: &str,
-
-        iss: String,
-        ecamo_url: String,
-    ) -> String {
-        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::ES256);
-        header.kid = Some(kid.to_string());
-        let payload = Self { iss, ecamo_url };
-
-        jsonwebtoken::encode(&header, &payload, key).unwrap()
-    }
 }
