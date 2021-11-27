@@ -144,7 +144,7 @@ pub struct HttptestAnonymousIDTokenMatcher {
 
 impl HttptestAnonymousIDTokenMatcher {
     fn attempt(&self, token: &str) -> Result<(), Error> {
-        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
+        let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
         let kid = metadata
             .key_id()

@@ -42,7 +42,7 @@ impl UrlToken {
         iss: &str,
         keys: &crate::config::PublicKeyBucket,
     ) -> Result<JWTClaims<Self>, Error> {
-        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
+        let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
         let kid = metadata
             .key_id()
@@ -52,12 +52,14 @@ impl UrlToken {
             .get(&key_name)
             .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
-        let mut verification = jwt_simple::common::VerificationOptions::default();
-        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
-            [iss.to_string()].into_iter(),
-        ));
+        let verification = jwt_simple::common::VerificationOptions {
+            allowed_issuers: Some(std::collections::HashSet::from_iter(
+                [iss.to_string()].into_iter(),
+            )),
+            ..Default::default()
+        };
 
-        match key.verify_token::<Self>(&token, Some(verification)) {
+        match key.verify_token::<Self>(token, Some(verification)) {
             Ok(claims) => Ok(claims),
             Err(jwt_error) => {
                 // anyhow
@@ -86,7 +88,7 @@ pub fn decode_service_auth_token(
     iss: &str,
     keys: &crate::config::PublicKeyBucket,
 ) -> Result<JWTClaims<serde_json::Value>, Error> {
-    let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
+    let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
     let kid = metadata
         .key_id()
@@ -96,15 +98,17 @@ pub fn decode_service_auth_token(
         .get(&key_name)
         .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
-    let mut verification = jwt_simple::common::VerificationOptions::default();
-    verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
-        [aud.to_string()].into_iter(),
-    ));
-    verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
-        [iss.to_string()].into_iter(),
-    ));
+    let verification = jwt_simple::common::VerificationOptions {
+        allowed_audiences: Some(std::collections::HashSet::from_iter(
+            [aud.to_string()].into_iter(),
+        )),
+        allowed_issuers: Some(std::collections::HashSet::from_iter(
+            [iss.to_string()].into_iter(),
+        )),
+        ..Default::default()
+    };
 
-    Ok(key.verify_token::<serde_json::Value>(&token, Some(verification))?)
+    Ok(key.verify_token::<serde_json::Value>(token, Some(verification))?)
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
@@ -143,7 +147,7 @@ impl ProxyToken {
         token: &str,
         keys: &crate::config::PublicKeyBucket,
     ) -> Result<JWTClaims<Self>, Error> {
-        let metadata = jwt_simple::token::Token::decode_metadata(&token)?;
+        let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
         let kid = metadata
             .key_id()
@@ -153,15 +157,17 @@ impl ProxyToken {
             .get(&kid)
             .ok_or_else(|| Error::UnknownKeyError(kid.clone()))?;
 
-        let mut verification = jwt_simple::common::VerificationOptions::default();
-        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
-            ["ecamo:s".to_owned()].into_iter(),
-        ));
-        verification.allowed_audiences = Some(std::collections::HashSet::from_iter(
-            ["ecamo:p".to_owned()].into_iter(),
-        ));
+        let verification = jwt_simple::common::VerificationOptions {
+            allowed_issuers: Some(std::collections::HashSet::from_iter(
+                ["ecamo:s".to_owned()].into_iter(),
+            )),
+            allowed_audiences: Some(std::collections::HashSet::from_iter(
+                ["ecamo:p".to_owned()].into_iter(),
+            )),
+            ..Default::default()
+        };
 
-        Ok(key.verify_token::<Self>(&token, Some(verification))?)
+        Ok(key.verify_token::<Self>(token, Some(verification))?)
     }
 
     pub fn digest(&self) -> String {
