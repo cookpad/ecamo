@@ -4,7 +4,7 @@ Ecamo (embedded camo) is a HTTP reverse proxy heavily inspired by [atmos/camo](h
 
 The original Camo aims to enable loading images behind cleartext HTTP server to avoid mixed content issue. In addition to that, Ecamo also aims to avoid using of third party cookies when loading images from other origins where require appropriate session cookies like company's internal screenshot server.
 
-We've been used Camo in our internal wiki to serve some external images for long time, but due to recent movement around third-party cookies, we need a similar system to allow embedding internal screenshot services without using third-party cookie.
+We've been using Camo in our internal wiki to serve some external images for long time, but due to recent movement around third-party cookies, we need a similar system to allow embedding internal screenshot services without using third-party cookie.
 
 ## How it works (at a glance)
 
@@ -33,7 +33,7 @@ Configuration is done through environment variables.
 - `ECAMO_CANONICAL_HOST` (required): HTTP Host header value of an _canonical origin._ Used to serve actual content. You may need to specify port number for non-standard ports.
 - `ECAMO_SERVICE_PUBLIC_KEYS` (required): JSON object where key is `"${SERVICE_ORIGIN} ${kid}"` and value is JWK object, used by services for signing an authorisation cookie and an ecamo URL. Supports ES256 keys. e.g. `{"https://service.test.invalid key_1": {"kid": "key_1", ...}}`
 - `ECAMO_PRIVATE_KEYS` (required): JSON object where key is token `kid` and value is JWK object, used by Ecamo for signing an short-lived authorization token in URL and request header. Supports ES256 keys. 
-- `ECAMO_SIGNING_KID`: `kid` to use primarily in `$ECAMO_PRIVATE_KEYS`.
+- `ECAMO_SIGNING_KID`: Primary private key `kid` to use; key element must be given through `$ECAMO_PRIVATE_KEYS`.
 - `ECAMO_SERVICE_HOST_REGEXP`: Regexp to validate a _service origin_ Host header. when unspecified, any origins work as a _service origin_.
 - `ECAMO_SOURCE_ALLOWED_REGEXP`: Regexp to validate a source URL. When specified, any unmatching source URL will be denied.
 - `ECAMO_SOURCE_BLOCKED_REGEXP`: Regexp to reject a source URL. When specified, any matching source URL will be denied.
