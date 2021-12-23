@@ -1,0 +1,85 @@
+[package]
+edition = "2021"
+license = "MIT"
+name = "ecamo"
+version = "0.1.0"
+
+[dependencies]
+actix-http = "3.0.0-beta.16"
+actix-web = "4.0.0-beta.15"
+base64 = "0.13.0"
+bytes = "1.1.0"
+chrono = "0.4.19"
+constant_time_eq = "0.1.5"
+env_logger = "0.9.0"
+envy = "0.4.2"
+futures = "0.3.19"
+hyper = "0.14.16"
+jwt-simple = "0.10.8"
+listenfd = "0.3.5"
+log = "0.4.14"
+rand = "0.8.4"
+regex = "1.5.4"
+serde = "1.0.132"
+serde_json = "1.0.73"
+serde_regex = "1.1.0"
+sha2 = "0.10.0"
+thiserror = "1.0.30"
+
+[dependencies.ecdsa]
+features = [
+    "sign",
+    "verify",
+]
+version = "0.12.0"
+
+[dependencies.elliptic-curve]
+features = [
+    "jwk",
+    "serde",
+]
+version = "0.10.6"
+
+[dependencies.p256]
+features = [
+    "arithmetic",
+    "jwk",
+]
+version = "0.9.0"
+
+[dependencies.reqwest]
+features = [
+    "stream",
+    "trust-dns",
+    "socks",
+]
+version = "0.11.8"
+
+[dependencies.serde_with]
+features = ["json"]
+version = "1.11.0"
+
+[dependencies.tokio]
+features = [
+    "rt",
+    "rt-multi-thread",
+    "io-util",
+    "io-std",
+    "net",
+    "macros",
+    "sync",
+]
+version = "1.15.0"
+
+[dependencies.url]
+features = ["serde"]
+version = "2.2.2"
+
+[dev-dependencies]
+actix-rt = "2.5.0"
+actix-test = "0.1.0-beta.6"
+bstr = "0.2.17"
+httptest = "0.15.4"
+hyper = "0.14.16"
+lazy_static = "1.4.0"
+mockito = "0.30.0"

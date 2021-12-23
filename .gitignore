@@ -1,0 +1,4 @@
+/target
+dev/Gemfile.lock
+dev/env.sh
+dev/*.pem
