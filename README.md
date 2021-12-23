@@ -30,7 +30,7 @@ Then Ecamo will redirect this URL to Ecamo's _canonical origin_ with a short-liv
 Configuration is done through environment variables.
 
 - `ECAMO_BIND` (default: `[::]:3000`): bind address
-- `ECAMO_CANONICAL_HOST` (required): HTTP Host header value of an _canonical origin._ Used to serve actual content.
+- `ECAMO_CANONICAL_HOST` (required): HTTP Host header value of an _canonical origin._ Used to serve actual content. You may need to specify port number for non-standard ports.
 - `ECAMO_SERVICE_PUBLIC_KEYS` (required): JSON object where key is `"${SERVICE_ORIGIN} ${kid}"` and value is JWK object, used by services for signing an authorisation cookie and an ecamo URL. Supports ES256 keys. e.g. `{"https://service.test.invalid key_1": {"kid": "key_1", ...}}`
 - `ECAMO_PRIVATE_KEYS` (required): JSON object where key is token `kid` and value is JWK object, used by Ecamo for signing an short-lived authorization token in URL and request header. Supports ES256 keys. 
 - `ECAMO_SIGNING_KID`: `kid` to use primarily in `$ECAMO_PRIVATE_KEYS`.
@@ -72,7 +72,7 @@ where:
     - `alg`: Must be `ES256`
     - `kid`: Must be set to a one defined in `$ECAMO_SIGNING_PUBLIC_KEYS`
   - claims:
-    - `iss`: Must be identical to a Web origin of _service origin,_ but port number should not be present. (e.g. `https://service.test.invalid`)
+    - `iss`: Must be identical to a Web origin of _service origin._ (e.g. `https://service.test.invalid`)
     - `ecamo:url`: source URL
     - `ecamo:send-token` (optional): Set to `true` to send _anonymous ID token_ to the source URL.
 
