@@ -81,25 +81,27 @@ fn default_bind() -> String {
     "[::]:3000".to_string()
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Config {
     #[serde(default = "default_bind")]
     pub bind: String,
 
     pub canonical_host: String,
 
-    pub private_keys: std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
-    pub service_public_keys: std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
+    #[serde(with = "serde_with::json::nested")]
+    pub private_keys: std::collections::HashMap<String, JwkObject>,
+    #[serde(with = "serde_with::json::nested")]
+    pub service_public_keys: std::collections::HashMap<String, JwkObject>,
 
     pub signing_kid: String,
 
-    #[serde(with = "serde_regex")]
+    #[serde(default, with = "serde_regex")]
     pub service_host_regexp: Option<regex::Regex>,
-    #[serde(with = "serde_regex")]
+    #[serde(default, with = "serde_regex")]
     pub source_allowed_regexp: Option<regex::Regex>,
-    #[serde(with = "serde_regex")]
+    #[serde(default, with = "serde_regex")]
     pub source_blocked_regexp: Option<regex::Regex>,
-    #[serde(with = "serde_regex")]
+    #[serde(default, with = "serde_regex")]
     pub private_source_allowed_regexp: Option<regex::Regex>,
 
     #[serde(default = "default_prefix")]
@@ -136,9 +138,10 @@ impl Config {
             .private_keys
             .get(&self.signing_kid)
             .ok_or_else(|| crate::error::Error::UnknownKeyError(self.signing_kid.clone()))?;
-        // TODO: Assert key.crv()
-        let secret_key = elliptic_curve::SecretKey::<p256::NistP256>::from_jwk(key)?;
+        let secret_key = elliptic_curve::SecretKey::<p256::NistP256>::from_jwk(&key.jwk)?;
         let signing_key = ecdsa::SigningKey::from(secret_key);
+
+        // FIXME: implement convert traits for JwkObject
 
         Ok(
             jwt_simple::algorithms::ES256KeyPair::from_bytes(signing_key.to_bytes().as_ref())
@@ -169,13 +172,11 @@ impl Config {
     }
 }
 
-fn make_jwk_hashmap(
-    keys: &std::collections::HashMap<String, elliptic_curve::JwkEcKey>,
-) -> PublicKeyBucket {
+fn make_jwk_hashmap(keys: &std::collections::HashMap<String, JwkObject>) -> PublicKeyBucket {
     keys.iter()
         .map(|(kid, jwk)| {
             let public_key =
-                elliptic_curve::PublicKey::<p256::NistP256>::from_jwk(jwk).expect("TODO:");
+                elliptic_curve::PublicKey::<p256::NistP256>::from_jwk(&jwk.jwk).expect("TODO:");
             let jwtkey = jwt_simple::algorithms::ES256PublicKey::from_bytes(
                 public_key.to_encoded_point(false).as_bytes(),
             )
@@ -183,4 +184,35 @@ fn make_jwk_hashmap(
             (kid.clone(), jwtkey)
         })
         .collect()
+}
+
+// XXX: to ignore use and kid field in given jwk
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
+pub struct JwkObject {
+    #[serde(rename = "use")]
+    _use: Option<String>,
+    kid: Option<String>,
+
+    #[serde(flatten)]
+    jwk: elliptic_curve::JwkEcKey,
+}
+
+impl std::convert::From<elliptic_curve::PublicKey<p256::NistP256>> for JwkObject {
+    fn from(k: elliptic_curve::PublicKey<p256::NistP256>) -> JwkObject {
+        JwkObject {
+            _use: None,
+            kid: None,
+            jwk: k.into(),
+        }
+    }
+}
+
+impl std::convert::From<elliptic_curve::SecretKey<p256::NistP256>> for JwkObject {
+    fn from(k: elliptic_curve::SecretKey<p256::NistP256>) -> JwkObject {
+        JwkObject {
+            _use: None,
+            kid: None,
+            jwk: k.into(),
+        }
+    }
 }
