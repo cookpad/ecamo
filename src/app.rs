@@ -260,6 +260,7 @@ fn do_redirect_to_source(
     );
     HttpResponse::Found()
         .insert_header(("x-ecamo-action", "redirect-to-source"))
+        .insert_header(("x-ecamo-reason", reason))
         .insert_header(("x-ecamo-source", url.as_str()))
         .insert_header(("Location", url.as_str()))
         .insert_header((
