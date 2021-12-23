@@ -250,7 +250,7 @@ fn do_redirect_to_source(
     service: &str,
     reason: &str,
     url: url::Url,
-) -> actix_web::HttpResponse<actix_web::body::AnyBody> {
+) -> HttpResponse {
     log::info!(
         "handler={} action=redirect service={} reason={} to={}",
         handler,
