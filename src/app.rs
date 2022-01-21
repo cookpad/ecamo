@@ -86,11 +86,23 @@ impl AppUpstream {
                     if let Some(proxy_url) = &internal_proxy_url {
                         if let Some(r) = &private_source_allowed_regexp {
                             if r.is_match(url.as_str()) {
+                                log::debug!(
+                                    "custom proxy: private_source_allowed_regexp matched, {}",
+                                    url.as_str()
+                                );
                                 None
                             } else {
+                                log::debug!(
+                                    "custom proxy: private_source_allowed_regexp not matched, {}",
+                                    url.as_str()
+                                );
                                 Some(proxy_url.clone())
                             }
                         } else {
+                            log::debug!(
+                                "custom proxy: private_source_allowed_regexp not set, {}",
+                                url.as_str()
+                            );
                             Some(proxy_url.clone())
                         }
                     } else {
