@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/rust:1.57-bullseye as builder
+FROM public.ecr.aws/docker/library/rust:1.58-bullseye as builder
 
 RUN mkdir -p /build/src/bin
 
