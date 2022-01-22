@@ -1,5 +1,7 @@
 use elliptic_curve::sec1::ToEncodedPoint;
 
+use crate::types::PublicKeyBucket;
+
 fn default_prefix() -> String {
     ".ecamo".to_string()
 }
@@ -126,9 +128,6 @@ pub struct Config {
     #[serde(default)]
     pub insecure: bool,
 }
-
-pub type PublicKeyBucket =
-    std::collections::HashMap<String, jwt_simple::algorithms::ES256PublicKey>;
 
 impl Config {
     // why jwt-simple doesn't provide a way to instantiate a key pair from ecdsa crate object?

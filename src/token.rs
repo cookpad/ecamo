@@ -40,7 +40,7 @@ impl UrlToken {
     pub fn decode(
         token: &str,
         iss: &str,
-        keys: &crate::config::PublicKeyBucket,
+        keys: &crate::types::PublicKeyBucket,
     ) -> Result<JWTClaims<Self>, Error> {
         let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
@@ -86,7 +86,7 @@ pub fn decode_service_auth_token(
     token: &str,
     aud: &str,
     iss: &str,
-    keys: &crate::config::PublicKeyBucket,
+    keys: &crate::types::PublicKeyBucket,
 ) -> Result<JWTClaims<serde_json::Value>, Error> {
     let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
@@ -145,7 +145,7 @@ impl ProxyToken {
 
     pub fn decode(
         token: &str,
-        keys: &crate::config::PublicKeyBucket,
+        keys: &crate::types::PublicKeyBucket,
     ) -> Result<JWTClaims<Self>, Error> {
         let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
