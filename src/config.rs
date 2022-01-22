@@ -1,6 +1,6 @@
 use elliptic_curve::sec1::ToEncodedPoint;
 
-use crate::types::PublicKeyBucket;
+use crate::key_lookup::PublicKeyBucket;
 
 fn default_prefix() -> String {
     ".ecamo".to_string()

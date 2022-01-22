@@ -51,8 +51,8 @@ pub async fn run(
 struct AppState {
     config: Config,
     signing_key: std::sync::Arc<jwt_simple::algorithms::ES256KeyPair>,
-    signing_decoding_keys: crate::types::PublicKeyBucket,
-    service_decoding_keys: crate::types::PublicKeyBucket,
+    signing_decoding_keys: crate::key_lookup::PublicKeyBucket,
+    service_decoding_keys: crate::key_lookup::PublicKeyBucket,
     upstream: AppUpstream,
 }
 
