@@ -1,0 +1,22 @@
+[package]
+authors = ["Sorah Fukumori <sorah@cookpad.com>"]
+edition = "2021"
+name = "ecamo_fastlyce"
+publish = false
+version = "0.1.0"
+
+[dependencies]
+fastly = "^0.8.0"
+log = "0.4.14"
+log-fastly = "0.8.2"
+jwt-simple = "0.10.8"
+serde_json = "1.0.73"
+thiserror = "1.0.30"
+
+[dependencies.ecamo]
+path = "../../"
+default-features = false
+features = []
+
+[profile.release]
+debug = 1

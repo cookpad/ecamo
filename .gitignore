@@ -2,3 +2,4 @@
 dev/Gemfile.lock
 dev/env.sh
 dev/*.pem
+dev/fastly_dictionary_public_keys.json
