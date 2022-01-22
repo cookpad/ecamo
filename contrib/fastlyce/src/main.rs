@@ -6,6 +6,7 @@ const PUBLIC_KEY_DICTIONARY_NAME: &str = "ecamo_public_keys";
 
 #[fastly::main]
 fn main(mut req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
+    log_fastly::init_simple("ecamo_log", log::LevelFilter::Info);
     if is_proxy_endpoint(&req) {
         match serve_proxy(&req) {
             Ok(t) => do_proxy(t, req),
