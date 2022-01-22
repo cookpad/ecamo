@@ -32,7 +32,7 @@ fn main(mut req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
         req.set_pass(true);
         let mut beresp = req.send("backend")?;
         set_common_response_headers(&mut beresp);
-        return Ok(beresp);
+        Ok(beresp)
     }
 }
 
@@ -47,10 +47,10 @@ fn serve_proxy(req: &fastly::Request) -> Result<ecamo::token::ProxyToken, Error>
         fastly::Dictionary::try_open(PUBLIC_KEY_DICTIONARY_NAME).expect("dictionary didn't open"),
     );
     let proxy_token =
-        ecamo::token::ProxyToken::decode(&t, &keys_bucket).map_err(Error::EcamoError)?;
+        ecamo::token::ProxyToken::decode(t, &keys_bucket).map_err(Error::EcamoError)?;
 
     // Note: Don't verify source address here because it is performed on backend
-    proxy_token.custom.verify(&digest)?;
+    proxy_token.custom.verify(digest)?;
 
     Ok(proxy_token.custom)
 }

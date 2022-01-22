@@ -13,9 +13,6 @@ impl PublicKeyLookup for PublicKeyBucket {
         &self,
         key_name: &str,
     ) -> Option<std::borrow::Cow<jwt_simple::algorithms::ES256PublicKey>> {
-        match self.get(key_name) {
-            Some(k) => Some(std::borrow::Cow::Borrowed(k)),
-            None => None,
-        }
+        self.get(key_name).map(std::borrow::Cow::Borrowed)
     }
 }
