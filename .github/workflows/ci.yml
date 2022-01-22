@@ -12,7 +12,7 @@ env:
 
 jobs:
   test:
-    name: test
+    name: test-webapp
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -25,6 +25,23 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+
+  test-fastlyce:
+    name: test-fastlyce
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-wasi
+          override: true
+      # FIXME: https://github.com/actions-rs/cargo/issues/6
+      - run: cargo build
+        working-directory: ./contrib/fastlyce
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
 
   docker-build:
     name: docker-build
