@@ -128,7 +128,14 @@ impl<T: serde::Serialize> LogLine<T> {
         use std::io::Write as _;
         // Call `write` once, the same way that log-fastly crate does.
         let buf = serde_json::to_string(&self)?;
-        writeln!(self.log_endpoint, "{}", buf)?;
+        if let Err(e) = writeln!(self.log_endpoint, "{}", buf) {
+            // "invalid log endpoint handle" per implementation of fastly::log
+            if e.kind() == std::io::ErrorKind::InvalidInput {
+                // do nothing
+            } else {
+                return Err(e);
+            }
+        }
         Ok(())
     }
 }
