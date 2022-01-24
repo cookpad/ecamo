@@ -78,12 +78,10 @@ fn do_proxy(
 }
 
 fn is_proxy_endpoint(req: &fastly::Request) -> bool {
-    match req.get_method() {
-        &fastly::http::Method::GET | &fastly::http::Method::HEAD => {
-            req.get_path().starts_with(PROXY_ENDPOINT_PREFIX)
-        }
-        _ => false,
-    }
+    matches!(
+        req.get_method(),
+        &fastly::http::Method::GET | &fastly::http::Method::HEAD
+    ) && req.get_path().starts_with(PROXY_ENDPOINT_PREFIX)
 }
 
 fn do_force_https(req: &fastly::Request) -> Option<fastly::Response> {
