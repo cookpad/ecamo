@@ -280,11 +280,13 @@ dependencies = [
 name = "ecamo_fastlyce"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "ecamo",
  "fastly",
  "jwt-simple",
  "log",
  "log-fastly",
+ "serde",
  "serde_json",
  "thiserror",
 ]

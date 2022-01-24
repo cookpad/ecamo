@@ -1,3 +1,4 @@
+use ecamo_fastlyce::access_log::EcamoCustomLogLine;
 use ecamo_fastlyce::error::Error;
 use ecamo_fastlyce::key_bucket::FastlyPublicKeyBucket;
 
@@ -5,13 +6,32 @@ const PROXY_ENDPOINT_PREFIX: &str = "/.ecamo/v1/p/";
 
 const PUBLIC_KEY_DICTIONARY_NAME: &str = "ecamo_public_keys";
 const LOG_ENDPOINT: &str = "ecamo_log";
+const ACCESS_LOG_ENDPOINT: &str = "ecamo_access";
 
 const HSTS_HEADER: &str = "max-age=31536000";
 
 #[fastly::main]
-fn main(mut req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
+fn main(req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
     init_logging();
+    let mut log_line =
+        ecamo_fastlyce::access_log::LogLine::<EcamoCustomLogLine>::new(ACCESS_LOG_ENDPOINT, &req)?;
+    log_line.custom.accept = req.get_header_str_lossy("accept").map(|hv| hv.into_owned());
 
+    match handle_request(req) {
+        Ok(mut resp) => {
+            set_common_response_headers(&mut resp);
+            complete_log_line(&mut log_line, &resp);
+            log_line.complete_with_response(&resp)?;
+            Ok(resp)
+        }
+        Err(e) => {
+            log_line.complete_with_error(&e)?;
+            Err(e)
+        }
+    }
+}
+
+fn handle_request(mut req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
     let local = std::env::var("FASTLY_HOSTNAME").unwrap() == "localhost";
     if !local {
         if let Some(resp) = do_force_https(&req) {
@@ -109,11 +129,33 @@ fn set_common_response_headers(resp: &mut fastly::Response) {
     }
 }
 
+fn complete_log_line(
+    log_line: &mut ecamo_fastlyce::access_log::LogLine<EcamoCustomLogLine>,
+    resp: &fastly::Response,
+) {
+    log_line.custom.ecamo_action = resp
+        .get_header_str_lossy("x-ecamo-action")
+        .map(|hv| hv.into_owned());
+    log_line.custom.ecamo_edge_error = resp
+        .get_header_str_lossy("x-ecamo-edge-error")
+        .map(|hv| hv.into_owned());
+    log_line.custom.ecamo_error = resp
+        .get_header_str_lossy("x-ecamo-error")
+        .map(|hv| hv.into_owned());
+    log_line.custom.ecamo_reason = resp
+        .get_header_str_lossy("x-ecamo-reason")
+        .map(|hv| hv.into_owned());
+    log_line.custom.ecamo_source = resp
+        .get_header_str_lossy("x-ecamo-source")
+        .map(|hv| hv.into_owned());
+}
+
 fn init_logging() {
     log_fastly::Logger::builder()
         .max_level(log::LevelFilter::Info)
         .default_endpoint(LOG_ENDPOINT)
         .echo_stdout(true)
+        .echo_stderr(true)
         .init();
     if let Err(e) = fastly::log::set_panic_endpoint(LOG_ENDPOINT) {
         log::warn!("set_panic_endpoint is failing: {e}");
