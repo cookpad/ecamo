@@ -2,15 +2,17 @@ use ecamo_fastlyce::error::Error;
 use ecamo_fastlyce::key_bucket::FastlyPublicKeyBucket;
 
 const PROXY_ENDPOINT_PREFIX: &str = "/.ecamo/v1/p/";
+
 const PUBLIC_KEY_DICTIONARY_NAME: &str = "ecamo_public_keys";
+const LOG_ENDPOINT: &str = "ecamo_log";
 
 const HSTS_HEADER: &str = "max-age=31536000";
 
 #[fastly::main]
 fn main(mut req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
-    log_fastly::init_simple("ecamo_log", log::LevelFilter::Info);
-    let local = std::env::var("FASTLY_HOSTNAME").unwrap() == "localhost";
+    init_logging();
 
+    let local = std::env::var("FASTLY_HOSTNAME").unwrap() == "localhost";
     if !local {
         if let Some(resp) = do_force_https(&req) {
             return Ok(resp);
@@ -106,5 +108,16 @@ fn set_common_response_headers(resp: &mut fastly::Response) {
 
     if local {
         resp.set_header("x-ecamo-edge-local", "local");
+    }
+}
+
+fn init_logging() {
+    log_fastly::Logger::builder()
+        .max_level(log::LevelFilter::Info)
+        .default_endpoint(LOG_ENDPOINT)
+        .echo_stdout(true)
+        .init();
+    if let Err(e) = fastly::log::set_panic_endpoint(LOG_ENDPOINT) {
+        log::warn!("set_panic_endpoint is failing: {e}");
     }
 }
