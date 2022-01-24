@@ -46,14 +46,12 @@ fn handle_request(mut req: fastly::Request) -> Result<fastly::Response, fastly::
                 req.set_pass(true);
                 let mut beresp = req.send("backend")?;
                 beresp.set_header("x-ecamo-edge-error", e.error_string());
-                set_common_response_headers(&mut beresp);
                 Ok(beresp)
             }
         }
     } else {
         req.set_pass(true);
-        let mut beresp = req.send("backend")?;
-        set_common_response_headers(&mut beresp);
+        let beresp = req.send("backend")?;
         Ok(beresp)
     }
 }
@@ -93,7 +91,6 @@ fn do_proxy(
 
     let mut beresp = req.send("backend")?;
     beresp.set_header("x-ecamo-edge", "ok");
-    set_common_response_headers(&mut beresp);
     Ok(beresp)
 }
 
