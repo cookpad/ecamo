@@ -37,7 +37,6 @@ impl ecamo::key_lookup::PublicKeyLookup for FastlyPublicKeyBucket {
             Ok(None) => None,
             Err(e) => {
                 log::warn!("public key error: key_name={key_name}, e={e}");
-                // TODO: log
                 None
             }
         }
