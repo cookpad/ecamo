@@ -357,6 +357,9 @@ fn proxy_stream_response(
         .insert_header(("x-ecamo-source", proxy_token.url()))
         .insert_header(("X-Frame-Options", "deny"))
         .insert_header(("X-Content-Type-Options", "nosniff"));
+    if let Some(sc) = state.config.default_surrogate_control.as_ref() {
+        downstream_resp.insert_header(("surrogate-control", sc.as_str()));
+    }
 
     proxy_headers_to_downstream(&resp, &mut downstream_resp, &state.config, true);
 

@@ -93,6 +93,7 @@ impl TestConfig {
 
             auth_cookie: None,
             default_cache_control: "public, max-age=3600".to_owned(),
+            default_surrogate_control: None,
 
             insecure: false,
         };
