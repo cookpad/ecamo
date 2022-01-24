@@ -122,7 +122,7 @@ The token doesn't contain user information, for example:
 
 ### Using with CDN
 
-TBD
+- Fastly Compute@Edge integration: see [./contrib/fastlyce](./contrib/fastlyce)
 
 ### SSRF Prevention (Private IP addresses)
 

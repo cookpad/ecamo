@@ -37,10 +37,10 @@ pub struct UrlToken {
 }
 
 impl UrlToken {
-    pub fn decode(
+    pub fn decode<T: crate::key_lookup::PublicKeyLookup>(
         token: &str,
         iss: &str,
-        keys: &crate::config::PublicKeyBucket,
+        keys: &T,
     ) -> Result<JWTClaims<Self>, Error> {
         let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
@@ -49,7 +49,7 @@ impl UrlToken {
             .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
         let key_name = format!("{} {}", iss, kid);
         let key = keys
-            .get(&key_name)
+            .lookup(&key_name)
             .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
         let verification = jwt_simple::common::VerificationOptions {
@@ -82,20 +82,20 @@ impl TokenWithSourceUrl for UrlToken {
     }
 }
 
-pub fn decode_service_auth_token(
+pub fn decode_service_auth_token<T: crate::key_lookup::PublicKeyLookup>(
     token: &str,
     aud: &str,
     iss: &str,
-    keys: &crate::config::PublicKeyBucket,
+    keys: &T,
 ) -> Result<JWTClaims<serde_json::Value>, Error> {
     let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
     let kid = metadata
         .key_id()
         .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?;
-    let key_name = format!("{} {}", iss, kid);
+    let key_name = format!("{iss} {kid}");
     let key = keys
-        .get(&key_name)
+        .lookup(&key_name)
         .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
     let verification = jwt_simple::common::VerificationOptions {
@@ -143,9 +143,9 @@ impl ProxyToken {
         .with_audience("ecamo:p"))
     }
 
-    pub fn decode(
+    pub fn decode<T: crate::key_lookup::PublicKeyLookup>(
         token: &str,
-        keys: &crate::config::PublicKeyBucket,
+        keys: &T,
     ) -> Result<JWTClaims<Self>, Error> {
         let metadata = jwt_simple::token::Token::decode_metadata(token)?;
 
@@ -154,7 +154,7 @@ impl ProxyToken {
             .ok_or_else(|| Error::MissingClaimError("kid".to_owned()))?
             .to_string();
         let key = keys
-            .get(&kid)
+            .lookup(&kid)
             .ok_or_else(|| Error::UnknownKeyError(kid.clone()))?;
 
         let verification = jwt_simple::common::VerificationOptions {

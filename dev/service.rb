@@ -7,6 +7,7 @@ require 'sinatra/cookies'
 CONTENT_URL = 'https://avatars.githubusercontent.com/u/119195?s=200&v=4'
 
 ECAMO_URL = 'http://ecamo.lo.nkmiusercontent.com:3000'
+ECAMO_BACKEND_URL_FASTLY = 'http://ecamo.lo.nkmiusercontent.com:3002'
 SERVICE_ORIGIN = 'http://service.lo.nkmiusercontent.com:3001'
 
 KID = 'svc'
@@ -55,5 +56,5 @@ end
 
 use Rack::ReverseProxy do
   reverse_proxy_options preserve_host: false
-  reverse_proxy /^\/\.ecamo(\/.*$)/, "#{ECAMO_URL}/.ecamo$1"
+  reverse_proxy /^\/\.ecamo(\/.*$)/, "#{ENV['FASTLY'] ? ECAMO_BACKEND_URL_FASTLY : ECAMO_URL}/.ecamo$1"
 end

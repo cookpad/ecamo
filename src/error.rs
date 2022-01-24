@@ -33,6 +33,7 @@ pub enum Error {
     #[error("unable to deserialize given JWT: {0}")]
     TokenDeserializationError(String),
 
+    #[cfg(feature = "webapp")]
     #[error("request error")]
     SourceRequestError(#[from] reqwest::Error),
 
@@ -47,7 +48,7 @@ pub enum Error {
 }
 
 impl Error {
-    fn error_string(&self) -> &str {
+    pub fn error_string(&self) -> &str {
         match *self {
             Self::Base64DecodeError(_) => "bad-request",
             Self::InvalidTokenError(_) => "invalid-token",
@@ -56,16 +57,20 @@ impl Error {
             Self::UnallowedServiceHostError => "unallowed-service-host",
             Self::UnallowedSourceError => "unallowed-source",
             Self::UnknownKeyError(_) => "unknown-key",
-            Self::SourceRequestError(_) => "source-request",
             Self::SourceResponseTooLargeError => "source-response-too-large",
             Self::InallowedContentTypeError => "unallowed-content-type",
             Self::UrlError(_) => "url",
             Self::TokenDeserializationError(_) => "token-deserialization",
+
+            #[cfg(feature = "webapp")]
+            Self::SourceRequestError(_) => "source-request",
+
             _ => "unknown",
         }
     }
 }
 
+#[cfg(feature = "webapp")]
 impl actix_web::ResponseError for Error {
     fn status_code(&self) -> actix_http::StatusCode {
         match *self {

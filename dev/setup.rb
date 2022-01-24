@@ -46,6 +46,8 @@ service_key = OpenSSL::PKey::EC.new("prime256v1").tap(&:generate_key!)
 File.open('./ecamo.pem', 'w', 0600) { |io| io.puts private_key.to_pem }
 File.open('./service.pem', 'w', 0600) { |io| io.puts service_key.to_pem }
 
+
+
 File.open('./env.sh', 'w', 0600) do |io|
   io.puts "export ECAMO_BIND=127.0.0.1:3000"
   io.puts "export ECAMO_CANONICAL_HOST=ecamo.lo.nkmiusercontent.com:3000"
@@ -63,3 +65,4 @@ File.open('./env.sh', 'w', 0600) do |io|
   io.puts "export ECAMO_PRIVATE_KEYS='#{private_keys.to_json}'"
   io.puts "export ECAMO_SIGNING_KID=prv"
 end
+File.write './fastly_dictionary_public_keys.json', "#{{prv: to_jwk("prv", private_key).to_json}.to_json}\n"

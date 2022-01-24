@@ -1,5 +1,7 @@
 use elliptic_curve::sec1::ToEncodedPoint;
 
+use crate::key_lookup::PublicKeyBucket;
+
 fn default_prefix() -> String {
     ".ecamo".to_string()
 }
@@ -127,9 +129,6 @@ pub struct Config {
     pub insecure: bool,
 }
 
-pub type PublicKeyBucket =
-    std::collections::HashMap<String, jwt_simple::algorithms::ES256PublicKey>;
-
 impl Config {
     // why jwt-simple doesn't provide a way to instantiate a key pair from ecdsa crate object?
 
@@ -175,12 +174,7 @@ impl Config {
 fn make_jwk_hashmap(keys: &std::collections::HashMap<String, JwkObject>) -> PublicKeyBucket {
     keys.iter()
         .map(|(kid, jwk)| {
-            let public_key =
-                elliptic_curve::PublicKey::<p256::NistP256>::from_jwk(&jwk.jwk).expect("TODO:");
-            let jwtkey = jwt_simple::algorithms::ES256PublicKey::from_bytes(
-                public_key.to_encoded_point(false).as_bytes(),
-            )
-            .unwrap();
+            let jwtkey: jwt_simple::algorithms::ES256PublicKey = jwk.try_into().unwrap();
             (kid.clone(), jwtkey)
         })
         .collect()
@@ -214,5 +208,22 @@ impl std::convert::From<elliptic_curve::SecretKey<p256::NistP256>> for JwkObject
             kid: None,
             jwk: k.into(),
         }
+    }
+}
+
+impl std::convert::TryInto<jwt_simple::algorithms::ES256PublicKey> for JwkObject {
+    type Error = jwt_simple::Error;
+    fn try_into(self) -> Result<jwt_simple::algorithms::ES256PublicKey, jwt_simple::Error> {
+        (&self).try_into()
+    }
+}
+
+impl std::convert::TryInto<jwt_simple::algorithms::ES256PublicKey> for &JwkObject {
+    type Error = jwt_simple::Error;
+    fn try_into(self) -> Result<jwt_simple::algorithms::ES256PublicKey, jwt_simple::Error> {
+        let public_key = elliptic_curve::PublicKey::<p256::NistP256>::from_jwk(&self.jwk)?;
+        jwt_simple::algorithms::ES256PublicKey::from_bytes(
+            public_key.to_encoded_point(false).as_bytes(),
+        )
     }
 }

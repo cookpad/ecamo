@@ -1,0 +1,13 @@
+manifest_version = 2
+name = "ecamo_fastlyce"
+description = "ecamo_fastlyce"
+authors = ["sorah@cookpad.com"]
+language = "rust"
+
+[local_server.backends.backend]
+url = "http://ecamo.lo.nkmiusercontent.com:3002"
+override_host = "ecamo.lo.nkmiusercontent.com:3000"
+
+[local_server.dictionaries.ecamo_public_keys]
+file = "../../dev/fastly_dictionary_public_keys.json"
+format = "json"
