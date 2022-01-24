@@ -147,7 +147,7 @@ fn version_to_str(v: fastly::http::Version) -> &'static str {
         fastly::http::Version::HTTP_11 => "HTTP/1.1",
         fastly::http::Version::HTTP_2 => "HTTP/2",
         fastly::http::Version::HTTP_3 => "HTTP/3",
-        _ => unreachable!(),
+        _ => "UNKNOWN",
     }
 }
 
