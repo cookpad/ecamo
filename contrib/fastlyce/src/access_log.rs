@@ -34,16 +34,13 @@ pub struct LogLine<CustomLogLine: serde::Serialize> {
     pub custom: CustomLogLine,
 }
 
-#[derive(serde::Serialize, Debug, Default)]
-pub struct NoCustomLogLine;
-
-impl<T: Default + serde::Serialize> LogLine<T> {
+impl LogLine<()> {
     pub fn new<E>(endpoint: E, req: &fastly::Request) -> Result<Self, fastly::Error>
     where
         E: TryInto<fastly::log::Endpoint>,
         <E as TryInto<fastly::log::Endpoint>>::Error: Into<fastly::Error>,
     {
-        Self::new_with_custom(endpoint, req, Default::default())
+        Self::new_with_custom(endpoint, req, ())
     }
 }
 

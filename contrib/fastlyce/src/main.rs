@@ -13,8 +13,11 @@ const HSTS_HEADER: &str = "max-age=31536000";
 #[fastly::main]
 fn main(req: fastly::Request) -> Result<fastly::Response, fastly::Error> {
     init_logging();
-    let mut log_line =
-        ecamo_fastlyce::access_log::LogLine::<EcamoCustomLogLine>::new(ACCESS_LOG_ENDPOINT, &req)?;
+    let mut log_line = ecamo_fastlyce::access_log::LogLine::new_with_custom(
+        ACCESS_LOG_ENDPOINT,
+        &req,
+        EcamoCustomLogLine::default(),
+    )?;
     log_line.custom.accept = req.get_header_str_lossy("accept").map(|hv| hv.into_owned());
 
     match handle_request(req) {
