@@ -1,8 +1,10 @@
 [package]
-edition = "2021"
-license = "MIT"
 name = "ecamo"
 version = "0.1.0"
+description = "SSL image proxy with JWT authentication"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/cookpad/ecamo"
 
 [features]
 default = ["webapp"]
