@@ -64,7 +64,6 @@ version = "0.13.2"
 [dependencies.reqwest]
 features = [
     "stream",
-    "hickory-dns",
     "socks",
 ]
 version = "0.13.5"
