@@ -35,9 +35,9 @@ struct State {
 
 impl InternalProxy {
     pub fn new(control: Control) -> Self {
-        use rand::Rng;
-        let password = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        use rand::RngExt;
+        let password = rand::rng()
+            .sample_iter(rand::distr::Alphanumeric)
             .take(40)
             .map(char::from)
             .collect();
@@ -50,22 +50,10 @@ impl InternalProxy {
     }
 
     pub fn is_reqwest_error_due_to_rejection(err: &reqwest::Error) -> bool {
-        if !err.is_connect() {
-            return false;
-        }
-
-        if let Some(source_err) = err.source() {
-            if let Some(hyper_err) = source_err.downcast_ref::<hyper::Error>() {
-                // XXX: to_string()
-                if hyper_err.is_connect()
-                    && hyper_err.to_string() == "error trying to connect: socks connect error: Address type not supported"
-                {
-                    return true;
-                }
-            }
-        }
-
-        false
+        // XXX: to_string(), as hyper-util does not export its SOCKS error types
+        err.is_connect()
+            && std::iter::successors(err.source(), |&e| e.source())
+                .any(|e| e.to_string() == "SOCKS error: address type not supported")
     }
 
     pub fn get_password(&self) -> String {
@@ -430,17 +418,20 @@ mod tests {
     #[tokio::test]
     async fn test_normal() {
         init();
-        let _m = mockito::mock("GET", "/hello")
+        let mut upstream = mockito::Server::new_async().await;
+        let _m = upstream
+            .mock("GET", "/hello")
             .with_status(200)
             .with_body("Hello\n")
-            .create();
+            .create_async()
+            .await;
 
         let server = TestInternalProxy::spawn(Control::permit_all()).await;
         let client = build_reqwest_client(server.url.clone());
 
         let resp = client
             .get(
-                reqwest::Url::parse(mockito::server_url().as_ref())
+                reqwest::Url::parse(upstream.url().as_ref())
                     .unwrap()
                     .join("/hello")
                     .unwrap(),
@@ -448,7 +439,7 @@ mod tests {
             .send()
             .await;
 
-        assert_eq!(resp.is_ok(), true);
+        assert!(resp.is_ok());
         let resp = resp.unwrap();
 
         assert_eq!(resp.status(), reqwest::StatusCode::OK);
@@ -457,17 +448,20 @@ mod tests {
     #[tokio::test]
     async fn test_reject_internal() {
         init();
-        let _m = mockito::mock("GET", "/hello")
+        let mut upstream = mockito::Server::new_async().await;
+        let _m = upstream
+            .mock("GET", "/hello")
             .with_status(200)
             .with_body("Hello\n")
-            .create();
+            .create_async()
+            .await;
 
         let server = TestInternalProxy::spawn(Control::permit_public()).await;
         let client = build_reqwest_client(server.url.clone());
 
         let resp = client
             .get(
-                reqwest::Url::parse(mockito::server_url().as_ref())
+                reqwest::Url::parse(upstream.url().as_ref())
                     .unwrap()
                     .join("/hello")
                     .unwrap(),
@@ -475,10 +469,9 @@ mod tests {
             .send()
             .await;
 
-        assert_eq!(resp.is_err(), true);
-        assert_eq!(
-            InternalProxy::is_reqwest_error_due_to_rejection(&resp.err().unwrap()),
-            true
-        );
+        assert!(resp.is_err());
+        assert!(InternalProxy::is_reqwest_error_due_to_rejection(
+            &resp.err().unwrap()
+        ));
     }
 }

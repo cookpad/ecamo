@@ -199,7 +199,7 @@ async fn test_proxy_200() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/test.gif", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/test.gif", env.upstream.url()));
 
     let resp = http
         .get(
@@ -228,7 +228,7 @@ async fn test_proxy_200_chunked() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/chunked.gif", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/chunked.gif", env.upstream.url()));
 
     let resp = http
         .get(
@@ -253,7 +253,7 @@ async fn test_proxy_40x() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/404", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/404", env.upstream.url()));
 
     let resp = http
         .get(
@@ -280,7 +280,7 @@ async fn test_proxy_inallowed_private_source() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let orig_url = format!("{}/test.gif", mockito::server_url());
+    let orig_url = format!("{}/test.gif", env.upstream.url());
     let url = orig_url.replace("127.0.0.1", "localhost");
     assert_ne!(orig_url, url);
     let (dgst, token) = make_proxy_token(&env, url);
@@ -305,7 +305,7 @@ async fn test_proxy_too_long() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/large.gif", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/large.gif", env.upstream.url()));
 
     let resp = http
         .get(
@@ -327,7 +327,7 @@ async fn test_proxy_inallowed_content_type() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/text", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/text", env.upstream.url()));
 
     let resp = http
         .get(
@@ -371,8 +371,7 @@ async fn test_proxy_too_long_chunked() {
     let env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let (dgst, token) =
-        make_proxy_token(&env, format!("{}/chunked-large.gif", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/chunked-large.gif", env.upstream.url()));
 
     let resp = http
         .get(
@@ -389,7 +388,8 @@ async fn test_proxy_too_long_chunked() {
     let bytes = resp.bytes().await;
 
     let err = bytes.err().unwrap();
-    assert!(err.is_body());
+    let source = std::error::Error::source(&err).and_then(|e| e.downcast_ref::<reqwest::Error>());
+    assert!(source.is_some_and(reqwest::Error::is_body), "{:?}", err);
 }
 
 #[actix_rt::test]
@@ -442,17 +442,20 @@ async fn test_proxy_send_token() {
 
 #[actix_rt::test]
 async fn test_proxy_request_headers() {
-    let env = init_and_spawn().await;
+    let mut env = init_and_spawn().await;
     let http = build_reqwest_client();
 
-    let _mock = mockito::mock("GET", "/headers.gif")
+    let _mock = env
+        .upstream
+        .mock("GET", "/headers.gif")
         .match_header("accept", "image/gif")
         .with_body(TEST_GIF.clone())
         .with_header("content-type", "image/gif")
         .with_header("etag", "W/\"headers\"")
-        .create();
+        .create_async()
+        .await;
 
-    let (dgst, token) = make_proxy_token(&env, format!("{}/headers.gif", mockito::server_url()));
+    let (dgst, token) = make_proxy_token(&env, format!("{}/headers.gif", env.upstream.url()));
 
     let resp = http
         .get(

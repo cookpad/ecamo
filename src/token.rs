@@ -53,9 +53,7 @@ impl UrlToken {
             .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
         let verification = jwt_simple::common::VerificationOptions {
-            allowed_issuers: Some(std::collections::HashSet::from_iter(
-                [iss.to_string()].into_iter(),
-            )),
+            allowed_issuers: Some(std::collections::HashSet::from_iter([iss.to_string()])),
             ..Default::default()
         };
 
@@ -99,12 +97,8 @@ pub fn decode_service_auth_token<T: crate::key_lookup::PublicKeyLookup>(
         .ok_or_else(|| Error::UnknownKeyError(key_name.clone()))?;
 
     let verification = jwt_simple::common::VerificationOptions {
-        allowed_audiences: Some(std::collections::HashSet::from_iter(
-            [aud.to_string()].into_iter(),
-        )),
-        allowed_issuers: Some(std::collections::HashSet::from_iter(
-            [iss.to_string()].into_iter(),
-        )),
+        allowed_audiences: Some(std::collections::HashSet::from_iter([aud.to_string()])),
+        allowed_issuers: Some(std::collections::HashSet::from_iter([iss.to_string()])),
         ..Default::default()
     };
 
@@ -158,12 +152,8 @@ impl ProxyToken {
             .ok_or_else(|| Error::UnknownKeyError(kid.clone()))?;
 
         let verification = jwt_simple::common::VerificationOptions {
-            allowed_issuers: Some(std::collections::HashSet::from_iter(
-                ["ecamo:s".to_owned()].into_iter(),
-            )),
-            allowed_audiences: Some(std::collections::HashSet::from_iter(
-                ["ecamo:p".to_owned()].into_iter(),
-            )),
+            allowed_issuers: Some(std::collections::HashSet::from_iter(["ecamo:s".to_owned()])),
+            allowed_audiences: Some(std::collections::HashSet::from_iter(["ecamo:p".to_owned()])),
             ..Default::default()
         };
 
@@ -171,16 +161,18 @@ impl ProxyToken {
     }
 
     pub fn digest(&self) -> String {
+        use base64::Engine;
         use sha2::Digest;
         let dgst = sha2::Sha384::digest(self.ecamo_url.as_str().as_bytes());
-        base64::encode_config(dgst, base64::URL_SAFE_NO_PAD)
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(dgst)
     }
 
     pub fn verify(&self, digest: &str) -> Result<(), Error> {
+        use base64::Engine;
         use sha2::Digest;
 
         let expected_dgst = sha2::Sha384::digest(self.ecamo_url.as_str().as_bytes());
-        let actual_dgst = base64::decode_config(digest, base64::URL_SAFE_NO_PAD)?;
+        let actual_dgst = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(digest)?;
 
         // Note: no need to use constant_time_eq as an actual URL is stored in ProxyToken JWT
         if actual_dgst.len() != 48

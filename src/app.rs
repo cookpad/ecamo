@@ -200,8 +200,8 @@ async fn serve_redirect(
         format!(
             "/{}/v1/p/{}?t={}",
             state.config.prefix,
-            &proxy_token.custom.digest(),
-            &state.signing_key.sign(proxy_token)?,
+            proxy_token.custom.digest(),
+            state.signing_key.sign(proxy_token)?,
         )
         .as_ref(),
     )?;
@@ -254,7 +254,7 @@ async fn serve_proxy(
         }
     }
 
-    Ok(do_proxy(state, req, proxy_token.custom).await?)
+    do_proxy(state, req, proxy_token.custom).await
 }
 
 fn do_redirect_to_source(
@@ -420,6 +420,8 @@ fn proxy_handle_upstream_error(
         proxy_token.url()
     );
 
+    let status = actix_web::http::StatusCode::from_u16(status.as_u16())
+        .expect("upstream status code should be valid");
     let mut downstream_resp = HttpResponse::build(status);
     downstream_resp
         .insert_header(("x-ecamo-action", "proxy-source"))
@@ -451,9 +453,9 @@ fn proxy_headers_to_upstream(
     upstream
 }
 
-fn proxy_headers_to_downstream<'a>(
+fn proxy_headers_to_downstream(
     upstream: &reqwest::Response,
-    downstream: &'a mut actix_web::HttpResponseBuilder,
+    downstream: &mut actix_web::HttpResponseBuilder,
     config: &Config,
     content_headers: bool,
 ) {

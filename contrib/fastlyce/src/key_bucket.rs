@@ -1,10 +1,10 @@
 pub struct FastlyPublicKeyBucket {
-    dictionary: fastly::Dictionary,
+    dictionary: fastly::ConfigStore,
     //cache: ecamo::key_lookup::PublicKeyBucket,
 }
 
 impl FastlyPublicKeyBucket {
-    pub fn new(dictionary: fastly::Dictionary) -> Self {
+    pub fn new(dictionary: fastly::ConfigStore) -> Self {
         Self {
             dictionary,
             // cache: std::collections::HashMap::new(),
@@ -31,7 +31,7 @@ impl ecamo::key_lookup::PublicKeyLookup for FastlyPublicKeyBucket {
     fn lookup(
         &self,
         key_name: &str,
-    ) -> Option<std::borrow::Cow<jwt_simple::algorithms::ES256PublicKey>> {
+    ) -> Option<std::borrow::Cow<'_, jwt_simple::algorithms::ES256PublicKey>> {
         match self.get_from_dictionary(key_name) {
             Ok(Some(k)) => Some(std::borrow::Cow::Owned(k)),
             Ok(None) => None,

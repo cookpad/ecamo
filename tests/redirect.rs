@@ -339,5 +339,5 @@ async fn test_redirect_proxy() {
         proxy_token.custom.ecamo_url.as_str(),
         "http://upstream.test.invalid/test"
     );
-    assert_eq!(proxy_token.custom.ecamo_send_token, false);
+    assert!(!proxy_token.custom.ecamo_send_token);
 }

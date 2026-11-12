@@ -12,7 +12,7 @@ impl Error {
     //}
 
     pub fn error_string(&self) -> &str {
-        match &*self {
+        match self {
             Error::EcamoError(e) => e.error_string(),
         }
     }
