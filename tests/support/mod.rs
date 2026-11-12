@@ -1,3 +1,6 @@
+// Shared by multiple test crates, each using only a part; Mock fields are held to keep mocks alive
+#![allow(dead_code)]
+
 use ecamo::error::Error;
 use ecamo::test;
 use jwt_simple::prelude::ECDSAP256PublicKeyLike;
@@ -13,6 +16,7 @@ lazy_static::lazy_static! {
 pub struct Environment {
     pub test_config: test::TestConfig,
     pub url: reqwest::Url,
+    pub upstream: mockito::ServerGuard,
     pub upstream_mock: mockito::Mock,
     pub upstream_mock_large: mockito::Mock,
     pub upstream_mock_chunked: mockito::Mock,
@@ -39,16 +43,21 @@ pub async fn init_and_spawn() -> Environment {
 
     tokio::spawn(async move { server.await.unwrap() });
 
-    let upstream_mock = mockito::mock("GET", "/test.gif")
+    let mut upstream = mockito::Server::new_async().await;
+
+    let upstream_mock = upstream
+        .mock("GET", "/test.gif")
         .with_body(TEST_GIF.clone())
         .with_header("content-type", "image/gif")
         .with_header("etag", "W/\"deadbeef\"")
         .with_header("expires", "60")
         .with_header("cache-control", "max-age=60, public")
         .with_header("vary", "accept")
-        .create();
+        .create_async()
+        .await;
 
-    let upstream_mock_large = mockito::mock("GET", "/large.gif")
+    let upstream_mock_large = upstream
+        .mock("GET", "/large.gif")
         .with_body(
             [
                 TEST_GIF.clone(),
@@ -68,18 +77,24 @@ pub async fn init_and_spawn() -> Environment {
         .with_header("expires", "60")
         .with_header("cache-control", "max-age=60, public")
         .with_header("vary", "accept")
-        .create();
+        .create_async()
+        .await;
 
-    let upstream_mock_chunked = mockito::mock("GET", "/chunked.gif")
-        .with_body_from_fn(upstream_mock_chunked_body)
+    let upstream_mock_chunked = upstream
+        .mock("GET", "/chunked.gif")
+        .with_chunked_body(upstream_mock_chunked_body)
         .with_header("content-type", "image/gif")
-        .create();
-    let upstream_mock_chunked_large = mockito::mock("GET", "/chunked-large.gif")
-        .with_body_from_fn(upstream_mock_chunked_large_body)
+        .create_async()
+        .await;
+    let upstream_mock_chunked_large = upstream
+        .mock("GET", "/chunked-large.gif")
+        .with_chunked_body(upstream_mock_chunked_large_body)
         .with_header("content-type", "image/gif")
-        .create();
+        .create_async()
+        .await;
 
-    let upstream_mock_404 = mockito::mock("GET", "/404")
+    let upstream_mock_404 = upstream
+        .mock("GET", "/404")
         .with_body("{\"four-oh-four\": 404}")
         .with_status(404)
         .with_header("content-type", "application/json")
@@ -87,16 +102,20 @@ pub async fn init_and_spawn() -> Environment {
         .with_header("expires", "60")
         .with_header("cache-control", "max-age=60, public")
         .with_header("vary", "accept")
-        .create();
+        .create_async()
+        .await;
 
-    let upstream_mock_text = mockito::mock("GET", "/text")
+    let upstream_mock_text = upstream
+        .mock("GET", "/text")
         .with_body("Hello")
         .with_header("content-type", "text/plain")
-        .create();
+        .create_async()
+        .await;
 
     Environment {
         test_config,
         url,
+        upstream,
         upstream_mock,
         upstream_mock_large,
         upstream_mock_chunked,
@@ -153,13 +172,13 @@ impl HttptestAnonymousIDTokenMatcher {
             return Err(Error::UnknownKeyError("kid != prv".to_owned()));
         }
 
-        let mut verification = jwt_simple::common::VerificationOptions::default();
-        verification.allowed_issuers = Some(std::collections::HashSet::from_iter(
-            ["https://ecamo.test.invalid".to_owned()].into_iter(),
-        ));
-        verification.allowed_audiences = Some(std::collections::HashSet::from_iter(
-            [self.aud.clone()].into_iter(),
-        ));
+        let verification = jwt_simple::common::VerificationOptions {
+            allowed_issuers: Some(std::collections::HashSet::from_iter([
+                "https://ecamo.test.invalid".to_owned(),
+            ])),
+            allowed_audiences: Some(std::collections::HashSet::from_iter([self.aud.clone()])),
+            ..Default::default()
+        };
 
         let claims = self
             .key

@@ -42,103 +42,85 @@ mod tests {
 
     #[test]
     fn test_ipv4_global() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(1, 1, 1, 1)), true);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(8, 8, 8, 8)), true);
+        assert!(ipv4addr_is_global(&Ipv4Addr::new(1, 1, 1, 1)));
+        assert!(ipv4addr_is_global(&Ipv4Addr::new(8, 8, 8, 8)));
     }
 
     #[test]
     fn test_ipv4_protocol_assignments_global() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(192, 0, 0, 9)), true);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(192, 0, 0, 10)), true);
+        assert!(ipv4addr_is_global(&Ipv4Addr::new(192, 0, 0, 9)));
+        assert!(ipv4addr_is_global(&Ipv4Addr::new(192, 0, 0, 10)));
     }
 
     #[test]
     fn test_ipv4_rfc791_3_2() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(0, 0, 0, 1)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(0, 0, 0, 1)));
     }
 
     #[test]
     fn test_ipv4_rfc1122_3_2_1_3() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(0, 0, 0, 0)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(0, 0, 0, 0)));
     }
 
     #[test]
     fn test_ipv4_private() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(10, 200, 0, 1)), false);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(172, 17, 0, 1)), false);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(192, 168, 100, 1)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(10, 200, 0, 1)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(172, 17, 0, 1)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(192, 168, 100, 1)));
     }
 
     #[test]
     fn test_ipv4_rfc6598() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(100, 65, 100, 65)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(100, 65, 100, 65)));
     }
 
     #[test]
     fn test_ipv4_link_local() {
-        assert_eq!(
-            ipv4addr_is_global(&Ipv4Addr::new(169, 254, 169, 254)),
-            false
-        );
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(169, 254, 169, 254)));
     }
 
     #[test]
     fn test_ipv4_documentation() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(192, 0, 2, 10)), false);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(198, 51, 100, 20)), false);
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(203, 0, 113, 30)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(192, 0, 2, 10)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(198, 51, 100, 20)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(203, 0, 113, 30)));
     }
 
     #[test]
     fn test_ipv4_benchmarking() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(198, 19, 198, 19)), false);
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(198, 19, 198, 19)));
     }
 
     #[test]
     fn test_ipv4_reserved() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(240, 0, 0, 1)), false);
-        assert_eq!(
-            ipv4addr_is_global(&Ipv4Addr::new(243, 243, 243, 243)),
-            false
-        );
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(240, 0, 0, 1)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(243, 243, 243, 243)));
     }
 
     #[test]
     fn test_ipv4_broadcast() {
-        assert_eq!(
-            ipv4addr_is_global(&Ipv4Addr::new(255, 255, 255, 255)),
-            false
-        );
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(255, 255, 255, 255)));
     }
 
     #[test]
     fn test_ipv4_loopback() {
-        assert_eq!(ipv4addr_is_global(&Ipv4Addr::new(127, 0, 0, 1)), false);
-        assert_eq!(
-            ipv4addr_is_global(&Ipv4Addr::new(127, 127, 127, 127)),
-            false
-        );
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(127, 0, 0, 1)));
+        assert!(!ipv4addr_is_global(&Ipv4Addr::new(127, 127, 127, 127)));
     }
 
     #[test]
     fn test_ipv6_global() {
-        assert_eq!(
-            ipv6addr_is_global(&"2001:4860:4860::8888".parse().unwrap()),
-            true
-        );
-        assert_eq!(
-            ipv6addr_is_global(&"2606:4700:4700::1111".parse().unwrap()),
-            true
-        );
+        assert!(ipv6addr_is_global(&"2001:4860:4860::8888".parse().unwrap()));
+        assert!(ipv6addr_is_global(&"2606:4700:4700::1111".parse().unwrap()));
     }
 
     #[test]
     fn test_ipv6_ula() {
-        assert_eq!(ipv6addr_is_global(&"fd00:ec2::254".parse().unwrap()), false);
+        assert!(!ipv6addr_is_global(&"fd00:ec2::254".parse().unwrap()));
     }
 
     #[test]
     fn test_ipv6_loopback() {
-        assert_eq!(ipv6addr_is_global(&"::1".parse().unwrap()), false);
+        assert!(!ipv6addr_is_global(&"::1".parse().unwrap()));
     }
 }

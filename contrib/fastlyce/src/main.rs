@@ -67,7 +67,7 @@ fn serve_proxy(req: &fastly::Request) -> Result<ecamo::token::ProxyToken, Error>
     let t = req.get_query_parameter("t").unwrap_or("");
 
     let keys_bucket = FastlyPublicKeyBucket::new(
-        fastly::Dictionary::try_open(PUBLIC_KEY_DICTIONARY_NAME).expect("dictionary didn't open"),
+        fastly::ConfigStore::try_open(PUBLIC_KEY_DICTIONARY_NAME).expect("dictionary didn't open"),
     );
     let proxy_token =
         ecamo::token::ProxyToken::decode(t, &keys_bucket).map_err(Error::EcamoError)?;
@@ -84,7 +84,7 @@ fn do_proxy(
 ) -> Result<fastly::Response, fastly::Error> {
     use fastly::experimental::RequestCacheKey as _;
     req.set_pass(false);
-    req.set_cache_key_str(&format!(
+    req.set_cache_key_str(format!(
         "v1:proxy:{}|{}|{}|{}",
         req.get_method_str(),
         proxy_token.ecamo_send_token,
@@ -105,7 +105,7 @@ fn is_proxy_endpoint(req: &fastly::Request) -> bool {
 }
 
 fn do_force_https(req: &fastly::Request) -> Option<fastly::Response> {
-    if req.get_tls_protocol().is_none() {
+    if matches!(req.get_tls_protocol(), Ok(None)) {
         let mut url = req.get_url().clone();
         url.set_scheme("https").unwrap();
         Some(

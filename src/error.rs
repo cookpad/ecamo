@@ -90,12 +90,8 @@ impl actix_web::ResponseError for Error {
         }
     }
 
-    fn error_response(&self) -> actix_web::web::HttpResponse {
-        log::warn!(
-            "ecamo::error::Error({}): {}",
-            self.error_string(),
-            self.to_string()
-        );
+    fn error_response(&self) -> actix_web::HttpResponse {
+        log::warn!("ecamo::error::Error({}): {}", self.error_string(), self);
         actix_web::HttpResponse::build(self.status_code())
             .insert_header(("x-ecamo-error", self.error_string()))
             .body(format!("Error: {}", self.error_string()))

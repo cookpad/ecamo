@@ -16,9 +16,15 @@ pub struct TestConfig {
 impl TestConfig {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let private_key = elliptic_curve::SecretKey::<p256::NistP256>::random(rand::thread_rng());
-        let service_key_1 = elliptic_curve::SecretKey::<p256::NistP256>::random(rand::thread_rng());
-        let service_key_2 = elliptic_curve::SecretKey::<p256::NistP256>::random(rand::thread_rng());
+        let private_key = elliptic_curve::SecretKey::<p256::NistP256>::random(
+            &mut elliptic_curve::rand_core::OsRng,
+        );
+        let service_key_1 = elliptic_curve::SecretKey::<p256::NistP256>::random(
+            &mut elliptic_curve::rand_core::OsRng,
+        );
+        let service_key_2 = elliptic_curve::SecretKey::<p256::NistP256>::random(
+            &mut elliptic_curve::rand_core::OsRng,
+        );
 
         let private_keypair =
             jwt_simple::algorithms::ES256KeyPair::from_bytes(private_key.to_bytes().as_ref())

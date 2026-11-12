@@ -2,7 +2,7 @@ pub trait PublicKeyLookup {
     fn lookup(
         &self,
         key_name: &str,
-    ) -> Option<std::borrow::Cow<jwt_simple::algorithms::ES256PublicKey>>;
+    ) -> Option<std::borrow::Cow<'_, jwt_simple::algorithms::ES256PublicKey>>;
 }
 
 pub type PublicKeyBucket =
@@ -12,7 +12,7 @@ impl PublicKeyLookup for PublicKeyBucket {
     fn lookup(
         &self,
         key_name: &str,
-    ) -> Option<std::borrow::Cow<jwt_simple::algorithms::ES256PublicKey>> {
+    ) -> Option<std::borrow::Cow<'_, jwt_simple::algorithms::ES256PublicKey>> {
         self.get(key_name).map(std::borrow::Cow::Borrowed)
     }
 }

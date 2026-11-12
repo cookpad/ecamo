@@ -1,11 +1,11 @@
 name: ci
 
-on: 
-  create: {}
+on:
   pull_request:
     branches: [main]
   push:
     branches: [main, ci-test]
+    tags: ["v*"]
 
 env:
   DOCKER_REPO: public.ecr.aws/cookpad/ecamo
@@ -15,33 +15,21 @@ jobs:
     name: test-webapp
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo build
+      - run: cargo test
 
   test-fastlyce:
     name: test-fastlyce
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: wasm32-wasi
-          override: true
-      # FIXME: https://github.com/actions-rs/cargo/issues/6
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal --target wasm32-wasip1
       - run: cargo build
         working-directory: ./contrib/fastlyce
-      # - uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
+      # - run: cargo test
+      #   working-directory: ./contrib/fastlyce
 
   docker-build:
     name: docker-build
@@ -50,21 +38,18 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1
-        # uses: aws-actions/configure-aws-credentials@a78fcb01f76c8c5c3b05ab82718a6f7919fc0269
-        # https://github.com/aws-actions/configure-aws-credentials/issues/271
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: us-east-1
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-skip-session-tagging: 'true'
-        if: "${{ github.event_name == 'push' || github.event_name == 'create' }}"
+        if: "${{ github.event_name == 'push' }}"
       - name: Login to ECR Public
-        run: 'aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws'
-        # FIXME: https://github.com/aws-actions/amazon-ecr-login/issues/116
-        # uses: aws-actions/amazon-ecr-login@v1
-        if: "${{ github.event_name == 'push' || github.event_name == 'create' }}"
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+        if: "${{ github.event_name == 'push' }}"
 
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v7
       - run: 'echo $GITHUB_SHA > REVISION'
 
       - run: "docker pull ${DOCKER_REPO}:latest || :"
@@ -82,7 +67,7 @@ jobs:
 
 
       - run: "docker push ${DOCKER_REPO}:stage-${GITHUB_SHA}"
-        if: "${{ github.event_name == 'push' || github.event_name == 'create' }}"
+        if: "${{ github.event_name == 'push' }}"
       - run: "docker push ${DOCKER_REPO}:builder"
         if: "${{ github.ref == 'refs/heads/main' }}"
 
@@ -90,18 +75,19 @@ jobs:
     name: docker-push
     runs-on: ubuntu-latest
     needs: [test, docker-build]
-    if: "${{ github.event_name == 'push' || github.event_name == 'create' }}"
+    if: "${{ github.event_name == 'push' }}"
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: us-east-1
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-skip-session-tagging: 'true'
       - name: Login to ECR Public
-        run: 'aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws'
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
 
       - run: "docker pull ${DOCKER_REPO}:stage-${GITHUB_SHA}"
 

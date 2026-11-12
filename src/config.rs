@@ -83,6 +83,7 @@ fn default_bind() -> String {
     "[::]:3000".to_string()
 }
 
+#[serde_with::serde_as]
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct Config {
     #[serde(default = "default_bind")]
@@ -90,9 +91,9 @@ pub struct Config {
 
     pub canonical_host: String,
 
-    #[serde(with = "serde_with::json::nested")]
+    #[serde_as(as = "serde_with::json::JsonString")]
     pub private_keys: std::collections::HashMap<String, JwkObject>,
-    #[serde(with = "serde_with::json::nested")]
+    #[serde_as(as = "serde_with::json::JsonString")]
     pub service_public_keys: std::collections::HashMap<String, JwkObject>,
 
     pub signing_kid: String,

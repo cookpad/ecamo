@@ -83,8 +83,12 @@ impl<T: serde::Serialize> LogLine<T> {
             fsly_service_version: std::env::var("FASTLY_SERVICE_VERSION").ok(),
             fsly_trace_id: std::env::var("FASTLY_TRACE_ID").ok(),
             fsly_timer: None,
-            fsly_tls_protocol: req.get_tls_protocol().map(|x| x.to_string()),
-            fsly_tls_cipher: req.get_tls_cipher_openssl_name().map(|x| x.to_string()),
+            fsly_tls_protocol: req.get_tls_protocol().ok().flatten().map(str::to_owned),
+            fsly_tls_cipher: req
+                .get_tls_cipher_openssl_name()
+                .ok()
+                .flatten()
+                .map(str::to_owned),
 
             error: None,
 

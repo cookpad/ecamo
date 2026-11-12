@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/rust:1.58-bullseye as builder
+FROM public.ecr.aws/docker/library/rust:1.99-trixie AS builder
 
 RUN mkdir -p /build/src/bin
 
@@ -10,6 +10,6 @@ RUN cargo build --release --locked
 COPY src /build/src
 RUN cargo build --release --locked
 
-FROM gcr.io/distroless/cc-debian11
+FROM gcr.io/distroless/cc-debian13
 COPY --from=builder /build/target/release/ecamo /usr/local/bin/
 CMD ["/usr/local/bin/ecamo"]
