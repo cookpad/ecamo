@@ -1,21 +1,21 @@
 pub struct FastlyPublicKeyBucket {
-    dictionary: fastly::ConfigStore,
+    config_store: fastly::ConfigStore,
     //cache: ecamo::key_lookup::PublicKeyBucket,
 }
 
 impl FastlyPublicKeyBucket {
-    pub fn new(dictionary: fastly::ConfigStore) -> Self {
+    pub fn new(config_store: fastly::ConfigStore) -> Self {
         Self {
-            dictionary,
+            config_store,
             // cache: std::collections::HashMap::new(),
         }
     }
 
-    fn get_from_dictionary(
+    fn get_from_config_store(
         &self,
         key_name: &str,
     ) -> Result<Option<jwt_simple::algorithms::ES256PublicKey>, Box<dyn std::error::Error>> {
-        let jwk_string = if let Some(s) = self.dictionary.get(key_name) {
+        let jwk_string = if let Some(s) = self.config_store.get(key_name) {
             s
         } else {
             return Ok(None);
@@ -32,7 +32,7 @@ impl ecamo::key_lookup::PublicKeyLookup for FastlyPublicKeyBucket {
         &self,
         key_name: &str,
     ) -> Option<std::borrow::Cow<'_, jwt_simple::algorithms::ES256PublicKey>> {
-        match self.get_from_dictionary(key_name) {
+        match self.get_from_config_store(key_name) {
             Ok(Some(k)) => Some(std::borrow::Cow::Owned(k)),
             Ok(None) => None,
             Err(e) => {
@@ -44,7 +44,7 @@ impl ecamo::key_lookup::PublicKeyLookup for FastlyPublicKeyBucket {
         //    return Some(k);
         //}
 
-        //if let Some(public_key) = self.get_from_dictionary(key_name).unwrap() {
+        //if let Some(public_key) = self.get_from_config_store(key_name).unwrap() {
         //    let key = &public_key;
         //    self.cache.insert(key_name.to_string(), public_key);
         //    Some(key)

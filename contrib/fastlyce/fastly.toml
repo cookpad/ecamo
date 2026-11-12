@@ -8,6 +8,6 @@ language = "rust"
 url = "http://ecamo.lo.nkmiusercontent.com:3002"
 override_host = "ecamo.lo.nkmiusercontent.com:3000"
 
-[local_server.dictionaries.ecamo_public_keys]
-file = "../../dev/fastly_dictionary_public_keys.json"
+[local_server.config_stores.ecamo_public_keys]
+file = "../../dev/fastly_config_store_public_keys.json"
 format = "json"

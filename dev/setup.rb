@@ -65,4 +65,4 @@ File.open('./env.sh', 'w', 0600) do |io|
   io.puts "export ECAMO_PRIVATE_KEYS='#{private_keys.to_json}'"
   io.puts "export ECAMO_SIGNING_KID=prv"
 end
-File.write './fastly_dictionary_public_keys.json', "#{{prv: to_jwk("prv", private_key).to_json}.to_json}\n"
+File.write './fastly_config_store_public_keys.json', "#{{prv: to_jwk("prv", private_key).to_json}.to_json}\n"

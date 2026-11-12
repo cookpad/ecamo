@@ -4,7 +4,7 @@ use ecamo_fastlyce::key_bucket::FastlyPublicKeyBucket;
 
 const PROXY_ENDPOINT_PREFIX: &str = "/.ecamo/v1/p/";
 
-const PUBLIC_KEY_DICTIONARY_NAME: &str = "ecamo_public_keys";
+const PUBLIC_KEY_CONFIG_STORE_NAME: &str = "ecamo_public_keys";
 const LOG_ENDPOINT: &str = "ecamo_log";
 const ACCESS_LOG_ENDPOINT: &str = "ecamo_access";
 
@@ -67,7 +67,8 @@ fn serve_proxy(req: &fastly::Request) -> Result<ecamo::token::ProxyToken, Error>
     let t = req.get_query_parameter("t").unwrap_or("");
 
     let keys_bucket = FastlyPublicKeyBucket::new(
-        fastly::ConfigStore::try_open(PUBLIC_KEY_DICTIONARY_NAME).expect("dictionary didn't open"),
+        fastly::ConfigStore::try_open(PUBLIC_KEY_CONFIG_STORE_NAME)
+            .expect("config store didn't open"),
     );
     let proxy_token =
         ecamo::token::ProxyToken::decode(t, &keys_bucket).map_err(Error::EcamoError)?;

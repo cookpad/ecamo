@@ -8,6 +8,6 @@ In the other hands, this crate aims to support edge verification of `?t=` for ca
 ## Deploy
 
 - Ecamo server should be set up as a backend named `backend`
-- `ecamo_public_keys` dictionary should be set up as follows with content based on `$ECAMO_PRIVATE_KEYS`: 
+- A Config Store should be linked to the service under the resource link name `ecamo_public_keys`, with content based on `$ECAMO_PRIVATE_KEYS` as follows: 
   - key: JWK `kid`
   - value: JWK JSON string; this should not contain private key
