@@ -11,6 +11,8 @@ pub mod app;
 pub mod internal_proxy;
 #[cfg(feature = "webapp")]
 pub mod request;
+#[cfg(feature = "webapp")]
+pub mod resolver;
 
 #[doc(hidden)]
 #[cfg(feature = "webapp")]

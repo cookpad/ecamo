@@ -82,6 +82,7 @@ impl AppUpstream {
                     config.max_redirects as usize,
                 ))
                 .timeout(std::time::Duration::from_secs(config.timeout))
+                .dns_resolver(crate::resolver::Ipv4FirstResolver)
                 .proxy(reqwest::Proxy::custom(move |url| {
                     if let Some(proxy_url) = &internal_proxy_url {
                         if let Some(r) = &private_source_allowed_regexp {
