@@ -1,6 +1,6 @@
 [package]
 name = "ecamo"
-version = "0.1.0"
+version = "0.2.0"
 description = "SSL image proxy with JWT authentication"
 edition = "2021"
 license = "MIT"
